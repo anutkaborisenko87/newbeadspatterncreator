@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Models\Language;
+use App\Models\PageSection;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -12,16 +13,15 @@ use Filament\Schemas\Components\Tabs\Tab;
 
 class SectionFormBuilder
 {
-    public static function build(?string $sectionType): array
+    public static function build(?string $sectionType, ?PageSection $record = null): array
     {
         if (! $sectionType) {
             return [];
         }
 
-        $rules = config(
-            "page_sections.{$sectionType}.validation_rules",
-            []
-        );
+        $rules = $record?->slug === $sectionType
+            ? json_decode($record->validation_rules, true, flags: JSON_THROW_ON_ERROR)
+            : config("page_sections.{$sectionType}.validation_rules", []);
 
         return [
             Tabs::make('Translations')
@@ -32,7 +32,7 @@ class SectionFormBuilder
                             ->schema(
                                 self::buildFields(
                                     $rules,
-                                    "translations.{$language->id}.data"
+                                    "translations.{$language->id}"
                                 )
                             )
                         )

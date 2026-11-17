@@ -9,7 +9,6 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -40,7 +39,10 @@ class SectionsRelationManager extends RelationManager
                     ->sortable(),
             ])
             ->headerActions([
-                CreateAction::make(),
+                CreateAction::make()
+                    ->using(fn (array $data): PageSection => (new PageSection([
+                        'page_id' => $this->getOwnerRecord()->getKey(),
+                    ]))->saveWithTranslations($data)),
             ])
             ->recordActions([
                 ActionGroup::make([
@@ -48,17 +50,16 @@ class SectionsRelationManager extends RelationManager
                         ->fillForm(function (PageSection $record): array {
                             $data = $record->attributesToArray();
 
-                            $data['section_type'] = $record->slug;
-
                             $data['translations'] = $record->translations()
                                 ->get()
                                 ->mapWithKeys(fn ($translation) => [
-                                    $translation->language_id => $translation->translation ?? [],
+                                    $translation->language_id => json_decode($translation->translation, true, flags: JSON_THROW_ON_ERROR),
                                 ])
                                 ->all();
 
                             return $data;
-                        }),
+                        })
+                        ->using(fn (PageSection $record, array $data): PageSection => $record->saveWithTranslations($data)),
                     DeleteAction::make()
                         ->requiresConfirmation(),
                 ])
@@ -84,8 +85,7 @@ class SectionsRelationManager extends RelationManager
                     ->native(false),
 
                 Section::make('Section content')
-                    ->schema(fn(Get $get): array => SectionFormBuilder::build($get('slug'))
-                    )
+                    ->schema(fn (Get $get, ?PageSection $record): array => SectionFormBuilder::build($get('slug'), $record))
                     ->visible(fn(Get $get): bool => filled($get('slug'))
                     )
                     ->columnSpanFull(),

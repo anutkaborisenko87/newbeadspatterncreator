@@ -2,7 +2,7 @@
 
 return [
     'getPatternCategoryList' => 'Pattern categories',
-    'getSortOptions' => 'Sorting options',
-    'getGalleryItems' => 'Gallery items',
-    'getRatedPictures' => 'Rated pictures',
+    'getSortByList' => 'Sorting options',
+    'getMainGalleryItemsList' => 'Gallery items',
+    'getMainRatedPicturesList' => 'Rated pictures',
 ];
