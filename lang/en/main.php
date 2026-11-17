@@ -1,5 +1,6 @@
 <?php
 return [
+    'bead_preview' => 'Bead preview',
     'page_not_found_title' => 'Page not found',
     'page_not_found_intro' => 'Sorry, we couldn’t find the page you’re looking for.',
     'page_not_found_button' => 'Go back',

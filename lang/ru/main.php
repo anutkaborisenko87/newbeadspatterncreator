@@ -1,5 +1,6 @@
 <?php
 return [
+    'bead_preview' => 'Предпросмотр бисерной схемы',
     'page_not_found_title' => 'Страница не найдена',
     'page_not_found_intro' => 'Извините, мы не смогли найти страницу, которую вы ищете.',
     'page_not_found_button' => 'Назад',

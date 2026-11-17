@@ -1,3 +1,4 @@
+import {usePage} from "@inertiajs/react";
 import Icon from "@/Components/Icon.jsx";
 import {useSelector} from "react-redux";
 import {CanvasGrid} from "@/Components/CanvasGrid.jsx";
@@ -6,10 +7,12 @@ import {commitDrawing, redo, setDrawnCells, setTool, undo} from "@/store/gridSli
 import {useDispatch} from "react-redux";
 import UsedColors from "@/Components/UsedColors.jsx";
 import ColorPicker from "@/Components/ColorPicker.jsx";
-import {useEffect, useRef} from "react";
+import {useEffect, useRef, useState} from "react";
 
 const EditorPageSection = ({data}) => {
     const dispatch = useDispatch();
+    const {bead_preview_label} = usePage().props;
+    const [showBeadPreview, setShowBeadPreview] = useState(true);
     const {mode} = useSelector((state) => state.themeMode);
     const {gridHeight,gridWidth, drawnCells, margin} = useSelector((state) => state.grid);
     const prevHeightRef = useRef(gridHeight);
@@ -72,7 +75,7 @@ const EditorPageSection = ({data}) => {
                 </div>
 
             </div>
-            <div className="flex justify-start items-center px-[1em] gap-[1em] my-[1em]">
+            <div className="flex flex-wrap justify-start items-center px-[1em] gap-[1em] my-[1em]">
                 <Icon className={'cursor-pointer'} name={'pencil'} color={color} size={25} title={data.pencil_title}
                       onClick={() => toggleTool("pen")}/>
                 <Icon className={'cursor-pointer'} name={'paint_fill'} color={color} size={25} title={data.fulfill_title}
@@ -91,6 +94,21 @@ const EditorPageSection = ({data}) => {
                       title={data.copyfield_title}
                       onClick={() => toggleTool("selection")}
                 />
+                <button
+                    type="button"
+                    className="inline-flex cursor-pointer items-center justify-center rounded hover:bg-current/10 focus-visible:outline-2 focus-visible:outline-offset-2"
+                    aria-label={bead_preview_label}
+                    aria-pressed={showBeadPreview}
+                    title={bead_preview_label}
+                    onClick={() => setShowBeadPreview((visible) => !visible)}
+                >
+                    <Icon
+                        name={showBeadPreview ? 'see_password' : 'hide_password'}
+                        color={color}
+                        size={25}
+                        aria-hidden="true"
+                    />
+                </button>
             </div>
             <div
                 className="flex w-[calc(100%-2em)] mx-auto justify-start items-center gap-[1em] bg-[#ffffff] overflow-auto">
@@ -98,10 +116,7 @@ const EditorPageSection = ({data}) => {
                 <CanvasGrid
                     offset={false}
                 />
-                {/* Смещенная сетка */}
-                <CanvasGrid
-                    offset={true}
-                />
+                {showBeadPreview && <CanvasGrid offset={true}/>}
             </div>
 
         </div>
