@@ -20,7 +20,7 @@ class PageSectionsService implements PageSectionsServiceInterface
             ->map(function ($item) {
                 return [
                     'slug' => $item->slug,
-                    ... $this->parseSectionRules($item->validation_rules, $item->translate->translation)
+                    ... $this->parseSectionRules($item->validation_rules, $item->translate?->translation ?? '{}')
                 ];
             });
 
@@ -37,13 +37,13 @@ class PageSectionsService implements PageSectionsServiceInterface
                 case 'string':
                 case 'text':
                 case 'text_editor':
-                    $result[$key] = $translation[$key];
+                    $result[$key] = $translation[$key] ?? null;
                     break;
                 case is_array($rule):
-                    $result[$key] = $this->parseSectionRules(json_encode($rule), json_encode($translation[$key]));
+                    $result[$key] = $this->parseSectionRules(json_encode($rule), json_encode($translation[$key] ?? []));
                     break;
                 case 'function':
-                    $result[$key] = $this->parseSectionFunction($translation[$key]);
+                    $result[$key] = $this->parseSectionFunction($translation[$key] ?? '');
                     break;
 
                 default: break;
