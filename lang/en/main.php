@@ -1,6 +1,26 @@
 <?php
 return [
+    'editor_draft_archive_error' => 'Could not save the draft. Please try again.',
+    'bead_dictation' => [
+        'title' => 'Dictation',
+        'row_order' => 'Row order',
+        'column_order' => 'Reading direction within a row',
+        'bottom_up' => 'Bottom to top',
+        'top_down' => 'Top to bottom',
+        'left_to_right' => 'Left to right',
+        'right_to_left' => 'Right to left',
+        'total' => 'Total beads',
+        'selected' => 'Selected color',
+        'row' => 'Row',
+        'color' => 'Color',
+        'quantity' => 'Quantity',
+    ],
     'bead_preview' => 'Bead preview',
+    'bead_preview_offsets' => [
+        'label' => 'Bead grid offset',
+        'horizontal' => 'Horizontal',
+        'vertical' => 'Vertical',
+    ],
     'page_not_found_title' => 'Page not found',
     'page_not_found_intro' => 'Sorry, we couldn’t find the page you’re looking for.',
     'page_not_found_button' => 'Go back',

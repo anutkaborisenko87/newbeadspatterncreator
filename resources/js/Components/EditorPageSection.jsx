@@ -1,22 +1,27 @@
 import {usePage} from "@inertiajs/react";
 import Icon from "@/Components/Icon.jsx";
-import {useSelector} from "react-redux";
+import {useSelector, useStore} from "react-redux";
 import {CanvasGrid} from "@/Components/CanvasGrid.jsx";
 import WidthHeightsControls from "@/Components/WidthHeightsControls.jsx";
-import {commitDrawing, redo, setDrawnCells, setTool, undo} from "@/store/gridSlice.js";
+import {redo, setDrawnCells, setTool, undo} from "@/store/gridSlice.js";
 import {useDispatch} from "react-redux";
 import UsedColors from "@/Components/UsedColors.jsx";
 import ColorPicker from "@/Components/ColorPicker.jsx";
-import {useEffect, useRef, useState} from "react";
+import BeadDictation, {BeadDictationControls} from "@/Components/BeadDictation.jsx";
+import {useLayoutEffect, useRef, useState} from "react";
+import {startEditorDraft} from '../utils/editorDraft.js';
+import {captureDraftPreview} from '../utils/captureDraftPreview.js';
 
-const EditorPageSection = ({data}) => {
+const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersion = 0, workspaceRef}) => {
     const dispatch = useDispatch();
-    const {bead_preview_label} = usePage().props;
+    const {bead_preview_label, bead_preview_offsets, bead_dictation} = usePage().props;
     const [showBeadPreview, setShowBeadPreview] = useState(true);
+    const [offsetDirection, setOffsetDirection] = useState('horizontal');
+    const [showDictation, setShowDictation] = useState(true);
+    const [bottomUp, setBottomUp] = useState(true);
+    const [leftToRight, setLeftToRight] = useState(true);
+    const clipboardRef = useRef(null);
     const {mode} = useSelector((state) => state.themeMode);
-    const {gridHeight,gridWidth, drawnCells, margin} = useSelector((state) => state.grid);
-    const prevHeightRef = useRef(gridHeight);
-    const prevWidthRef = useRef(gridWidth);
     let color = '';
     switch (mode) {
         case 'positive':
@@ -35,92 +40,160 @@ const EditorPageSection = ({data}) => {
     const toggleTool = (tool) => {
         dispatch(setTool(tool));
     };
-    useEffect(() => {
-        if (prevHeightRef.current !== gridHeight || prevWidthRef.current !== gridWidth) {
-            const deltaH = gridHeight - prevHeightRef.current;
-            const deltaW = gridWidth - prevWidthRef.current;
-            const newDrawnCells = {};
-            Object.entries(drawnCells).forEach(([cell, color]) => {
-                let [x, y] = cell.split(",").map(Number);
-                const newX = x;
-                const newY = y + deltaH;
-                if (
-                    newX >= margin &&
-                    newX < gridWidth + margin &&
-                    newY >= margin &&
-                    newY < gridHeight + margin
-                ) {
-                    newDrawnCells[`${newX},${newY}`] = color;
-                }
-            });
-            dispatch(setDrawnCells(newDrawnCells));
-            dispatch(commitDrawing());
-            prevHeightRef.current = gridHeight;
-        }
-    }, [dispatch,gridWidth, gridHeight]);
-    useEffect(() => {
-        dispatch(commitDrawing());
-    }, [dispatch]);
-
     return (
         <div className={'editor-main-div'}>
-            <div className={'px-[1em] flex justify-between items-end my-[1em]'}>
-                <WidthHeightsControls color={color} data={data} />
-
-                <div className={'flex justify-end items-end gap-[1em]'}>
-                    <Icon className={'cursor-pointer'} name={'plus'} color={color} size={25}
-                          title={data.new_draft_title}/>
-                    <Icon className={'cursor-pointer'} name={'save'} color={color} size={25}
-                          title={data.save_draft_title}/>
+            <div className="editor-header">
+                <div className="editor-header-tools" inert={archiving ? '' : undefined}>
+                    <WidthHeightsControls color={color} data={data} />
+                    <div className="flex flex-wrap items-center gap-[1em]">
+                        <Icon className={'cursor-pointer'} name={'pencil'} color={color} size={25} title={data.pencil_title}
+                              onClick={() => toggleTool("pen")}/>
+                        <Icon className={'cursor-pointer'} name={'paint_fill'} color={color} size={25} title={data.fulfill_title}
+                              onClick={() => toggleTool("fill")}/>
+                        <Icon className={'cursor-pointer'} name={'eraser'} color={color} size={25} title={data.eraser_title}
+                              onClick={() => toggleTool("eraser")}/>
+                        <Icon className={'cursor-pointer'} name={'undo'} color={color} size={25} title={data.undo_title}
+                              onClick={() => dispatch(undo())}/>
+                        <Icon className={'cursor-pointer'} name={'redo'} color={color} size={25} title={data.redo_title}
+                              onClick={() => dispatch(redo())}/>
+                        <Icon className={'cursor-pointer'} name={'trash'} color={color} size={25} title={data.clear_title}
+                              onClick={() => dispatch(setDrawnCells({}))}/>
+                        <ColorPicker color={color} title={data.colors_title}/>
+                        <UsedColors/>
+                        <Icon className={'cursor-pointer'} name={'grid'} color={color} size={25}
+                              title={data.copyfield_title}
+                              onClick={() => toggleTool("selection")}
+                        />
+                        <button
+                            type="button"
+                            className="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                            aria-label={bead_preview_label}
+                            aria-pressed={showBeadPreview}
+                            title={bead_preview_label}
+                            onClick={() => setShowBeadPreview((visible) => !visible)}
+                        >
+                            <Icon
+                                name={showBeadPreview ? 'see_password' : 'hide_password'}
+                                color={color}
+                                size={25}
+                                aria-hidden="true"
+                            />
+                        </button>
+                        {showBeadPreview && (
+                            <button
+                                type="button"
+                                className="inline-flex cursor-pointer items-center justify-center border-0 bg-transparent p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                                aria-label={`${bead_preview_offsets.label}: ${bead_preview_offsets.vertical}`}
+                                aria-pressed={offsetDirection === 'vertical'}
+                                title={`${bead_preview_offsets.label}: ${bead_preview_offsets[offsetDirection]}`}
+                                onClick={() => setOffsetDirection((direction) => direction === 'horizontal' ? 'vertical' : 'horizontal')}
+                            >
+                                <Icon
+                                    name="staggered_grid"
+                                    color={color}
+                                    size={25}
+                                    style={{ transform: offsetDirection === 'vertical' ? 'rotate(90deg)' : undefined }}
+                                    aria-hidden="true"
+                                />
+                            </button>
+                        )}
+                    </div>
                 </div>
-
-            </div>
-            <div className="flex flex-wrap justify-start items-center px-[1em] gap-[1em] my-[1em]">
-                <Icon className={'cursor-pointer'} name={'pencil'} color={color} size={25} title={data.pencil_title}
-                      onClick={() => toggleTool("pen")}/>
-                <Icon className={'cursor-pointer'} name={'paint_fill'} color={color} size={25} title={data.fulfill_title}
-                      onClick={() => toggleTool("fill")}/>
-                <Icon className={'cursor-pointer'} name={'eraser'} color={color} size={25} title={data.eraser_title}
-                      onClick={() => toggleTool("eraser")}/>
-                <Icon className={'cursor-pointer'} name={'undo'} color={color} size={25} title={data.undo_title}
-                      onClick={() => dispatch(undo())}/>
-                <Icon className={'cursor-pointer'} name={'redo'} color={color} size={25} title={data.redo_title}
-                      onClick={() => dispatch(redo())}/>
-                <Icon className={'cursor-pointer'} name={'trash'} color={color} size={25} title={data.clear_title}
-                      onClick={() => dispatch(setDrawnCells({}))}/>
-                <ColorPicker color={color} title={data.colors_title}/>
-                <UsedColors/>
-                <Icon className={'cursor-pointer'} name={'grid'} color={color} size={25}
-                      title={data.copyfield_title}
-                      onClick={() => toggleTool("selection")}
-                />
-                <button
-                    type="button"
-                    className="inline-flex cursor-pointer items-center justify-center rounded hover:bg-current/10 focus-visible:outline-2 focus-visible:outline-offset-2"
-                    aria-label={bead_preview_label}
-                    aria-pressed={showBeadPreview}
-                    title={bead_preview_label}
-                    onClick={() => setShowBeadPreview((visible) => !visible)}
-                >
-                    <Icon
-                        name={showBeadPreview ? 'see_password' : 'hide_password'}
-                        color={color}
-                        size={25}
-                        aria-hidden="true"
+                <div className="editor-header-aside">
+                    <div className="flex justify-end items-center gap-[1em]">
+                        <button
+                            type="button"
+                            className="inline-flex cursor-pointer items-center border-0 bg-transparent p-0 disabled:cursor-default disabled:opacity-50"
+                            aria-label={data.new_draft_title}
+                            title={data.new_draft_title}
+                            disabled={!onNewDraft || archiving}
+                            onClick={onNewDraft}
+                        >
+                            <Icon name="plus" color={color} size={25} aria-hidden="true" />
+                        </button>
+                        <Icon className="cursor-pointer" name="save" color={color} size={25}
+                              title={data.save_draft_title}/>
+                    </div>
+                    {archiveError && <p role="alert">{archiveError}</p>}
+                    <BeadDictationControls
+                        labels={bead_dictation}
+                        open={showDictation}
+                        onToggle={() => setShowDictation((visible) => !visible)}
+                        bottomUp={bottomUp}
+                        setBottomUp={setBottomUp}
+                        leftToRight={leftToRight}
+                        setLeftToRight={setLeftToRight}
                     />
-                </button>
+                </div>
             </div>
-            <div
-                className="flex w-[calc(100%-2em)] mx-auto justify-start items-center gap-[1em] bg-[#ffffff] overflow-auto">
-                {/* Основная сетка */}
-                <CanvasGrid
-                    offset={false}
-                />
-                {showBeadPreview && <CanvasGrid offset={true}/>}
+            <div className="editor-workspace" ref={workspaceRef}>
+                <div className="max-w-full overflow-auto" inert={archiving ? '' : undefined}>
+                    <div className="flex w-max items-start gap-[1em]" key={canvasVersion}>
+                        <CanvasGrid clipboardRef={clipboardRef} />
+                        {showBeadPreview && <CanvasGrid offsetDirection={offsetDirection} clipboardRef={clipboardRef} />}
+                    </div>
+                </div>
+                {showDictation && (
+                    <BeadDictation
+                        labels={bead_dictation}
+                        bottomUp={bottomUp}
+                        leftToRight={leftToRight}
+                    />
+                )}
             </div>
 
         </div>
     );
 };
 
-export default EditorPageSection;
+function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId}) {
+    const store = useStore();
+    const {editor_draft_archive_error} = usePage().props;
+    const initialDraft = useRef(serverDraft);
+    const sessionRef = useRef(null);
+    const workspaceRef = useRef(null);
+    const [ready, setReady] = useState(false);
+    const [archiving, setArchiving] = useState(false);
+    const [archiveError, setArchiveError] = useState(null);
+    const [canvasVersion, setCanvasVersion] = useState(0);
+
+    useLayoutEffect(() => {
+        const session = startEditorDraft(store, owner, url, initialDraft.current, savedDraftId,
+            () => captureDraftPreview(workspaceRef.current));
+        sessionRef.current = session;
+        setReady(true);
+        return session.stop;
+    }, [store, owner, url, savedDraftId]);
+
+    const archive = async () => {
+        setArchiveError(null);
+        setArchiving(true);
+        try {
+            if (await sessionRef.current.archive()) setCanvasVersion((value) => value + 1);
+        } catch {
+            setArchiveError(editor_draft_archive_error);
+        } finally {
+            setArchiving(false);
+        }
+    };
+
+    return ready ? (
+        <EditorWorkspace data={data} onNewDraft={savedDraftId == null ? archive : undefined} archiving={archiving}
+                         archiveError={archiveError} canvasVersion={canvasVersion} workspaceRef={workspaceRef} />
+    ) : null;
+}
+
+export default function EditorPageSection({data}) {
+    const {user, editorDraft, editorDraftUrl, editorSavedDraftId} = usePage().props;
+
+    return user && editorDraftUrl ? (
+        <AuthenticatedEditor
+            key={`${user.id}:${editorDraftUrl}`}
+            data={data}
+            owner={user.id}
+            url={editorDraftUrl}
+            serverDraft={editorDraft}
+            savedDraftId={editorSavedDraftId}
+        />
+    ) : <EditorWorkspace data={data} />;
+}

@@ -78,13 +78,17 @@ const ProfileGalleryItem = ({data, section_slug, per_page}) => {
                 );
         }
     }
+    const draftLink = section_slug === 'drafts' && data.link;
+    const Card = draftLink ? Link : 'div';
+
     return (
-        <div
-            className={`galery-item-block-background  rounded-[15px] p-[1em] w-1/${per_page}`}>
-            {data.link === null ?
+        <Card
+            {...(draftLink ? {href: draftLink} : {})}
+            className={`galery-item-block-background rounded-[15px] p-[1em] w-1/${per_page}`}>
+            {draftLink || data.link === null ?
                 <div
                     className={`flex justify-center items-start w-[90%] my-[1em]`}>
-                    <img src={data.preview} alt={data.title} className={'w-[90%] h-[10em]'}/>
+                    <img src={data.preview} alt={data.title} className={`w-[90%] h-[10em] ${draftLink ? 'object-contain bg-white' : ''}`}/>
                 </div> :
                 <Link href={data.link}
                     className={`flex justify-center items-start w-[90%] my-[1em]`}>
@@ -93,7 +97,7 @@ const ProfileGalleryItem = ({data, section_slug, per_page}) => {
             }
             {renderFooter()}
 
-        </div>
+        </Card>
     );
 };
 

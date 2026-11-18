@@ -30,25 +30,22 @@ const Layout = ({children}) => {
     }, [url, dispatch]);
 
     return (
-        <>
+        <div className="site-layout">
             <Modal>
                 {modalMode === 'login' && <LoginForm />}
                 {modalMode === 'register' && <RegisterForm />}
                 {modalMode === 'update_profile' && <UpdateProfileForm />}
             </Modal>
             <Header/>
-            <div className={mode}>
-                <main className="main">
+            <div className={`site-content ${mode}`}>
+                <main>
                     <FlashAlert/>
                     <Navbar />
                     {children}
-                    <Footer/>
-
                 </main>
+                <Footer/>
             </div>
-
-
-        </>
+        </div>
     );
 };
 

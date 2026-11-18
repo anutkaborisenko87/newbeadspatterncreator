@@ -116,9 +116,21 @@ ul {
     @apply w-full flex mt-[2em] h-[70px] bg-[#B9B1EE] dark:bg-[#0E0448] positive:bg-[#B9B1EE] negative:bg-[#0E0448] border-t-2 border-b-2 border-[#0E0448] positive:border-[#0E0448] negative:border-[#B9B1EE] dark:border-[#B9B1EE]
 }
 
-.main {
-    padding-bottom: 1em;
-    @apply min-h-screen flex flex-col text-[#031945] dark:text-[#AEC2ED] positive:text-[#031945] negative:text-[#8FA8DE] dark:bg-[#202020] positive:bg-[#547BCD] negative:bg-[#0B3286];
+.site-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+}
+
+.site-content {
+    @apply flex flex-auto flex-col text-[#031945] dark:text-[#AEC2ED] positive:text-[#031945] negative:text-[#8FA8DE] dark:bg-[#202020] positive:bg-[#547BCD] negative:bg-[#0B3286];
+}
+
+.site-content > main {
+    display: flex;
+    flex-direction: column;
+    flex: 1 0 auto;
 }
 
 .padding-footer-links {
@@ -287,6 +299,203 @@ ul {
 
 .editor-main-div {
     @apply w-5/6 mx-auto py-[1em] rounded-[10px] bg-[#AEC2ED] text-[#031945] dark:bg-[#1F51BD] dark:text-[#AEC2ED] positive:bg-[#AEC2ED] positive:text-[#031945] negative:bg-[#3663C4] negative:text-[#D9D9D9]
+}
+
+.editor-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem;
+    margin: 1rem;
+}
+
+.editor-header-tools,
+.editor-header-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.editor-header-tools {
+    flex: 1 1 25rem;
+    align-items: flex-start;
+}
+
+.editor-header-aside {
+    flex: 1 1 20rem;
+    max-width: 32rem;
+}
+
+.editor-workspace {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    width: calc(100% - 2em);
+    margin-inline: auto;
+    background: #fff;
+}
+
+.dictation-panel {
+    border: 1px solid #c6d4ee;
+    border-radius: 12px;
+    background: #f4f7fd;
+    color: #031945;
+    font: 0.875rem/1.4 system-ui, sans-serif;
+}
+
+.dictation-panel button {
+    font: inherit;
+    cursor: pointer;
+}
+
+.dictation-panel button:focus-visible {
+    outline: 2px solid #1f51bd;
+    outline-offset: 2px;
+}
+
+.dictation-panel .dictation-heading {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border: 0;
+    border-radius: 11px;
+    background: #e5edfc;
+    color: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.dictation-heading[aria-expanded="true"] {
+    border-radius: 11px 11px 0 0;
+}
+
+.dictation-body {
+    display: grid;
+    box-sizing: border-box;
+    flex: 1 1 16rem;
+    min-width: 0;
+    max-width: 32rem;
+    gap: 0.85rem;
+    margin: 0.75rem;
+    padding: 1rem;
+}
+
+.dictation-controls,
+.dictation-directions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.dictation-controls {
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    padding: 0.65rem 1rem;
+}
+
+.dictation-directions {
+    padding: 3px;
+    border: 1px solid #c6d4ee;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.dictation-directions button {
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    font-size: 1.125rem;
+    font-weight: 700;
+}
+
+.dictation-directions button:hover {
+    background: #e5edfc;
+}
+
+.dictation-directions button[aria-pressed="true"] {
+    background: #1f51bd;
+    color: #fff;
+}
+
+.dictation-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr));
+    gap: 0.5rem;
+}
+
+.dictation-stats > div {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid #d8e2f4;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.dictation-stats dt {
+    color: #405576;
+    font-size: 0.8rem;
+}
+
+.dictation-stats dd {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.dictation-swatch {
+    box-sizing: border-box;
+    display: inline-block;
+    flex: 0 0 0.75rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border: 1px solid #7184ac;
+    border-radius: 3px;
+}
+
+.dictation-colors,
+.dictation-rows ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.55rem;
+    list-style: none;
+}
+
+.dictation-colors li,
+.dictation-rows ul li {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.dictation-colors li {
+    padding: 0.25rem 0.5rem;
+    border-radius: 5px;
+    background: #e5edfc;
+}
+
+.dictation-rows {
+    max-height: 18rem;
+    overflow: auto;
+    list-style: none;
+    border: 1px solid #d8e2f4;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.dictation-rows > li {
+    padding: 0.5rem 0.7rem;
+}
+
+.dictation-rows > li + li {
+    border-top: 1px solid #e5edfc;
 }
 
 .editor-number-inputs {

@@ -47,6 +47,7 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
 
         $request->session()->regenerateToken();
+        Inertia::clearHistory();
 
         $protectedPaths = config('protected_paths.logout_redirect_exceptions', []);
         $isProtected = false;

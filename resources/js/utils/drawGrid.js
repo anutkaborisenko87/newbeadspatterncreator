@@ -1,3 +1,26 @@
+export const getHalfCellShift = (index, cellSize) => (index % 2) * cellSize / 2;
+
+export const getHorizontalPosition = (x, row, width, cellSize) => {
+    const shifted = x - row * cellSize / 2;
+    return ((shifted % width) + width) % width;
+};
+
+export const drawVerticalGrid = (ctx, width, height, cellSize, margin) => {
+    ctx.strokeStyle = "#ddd";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let column = 0; column < width / cellSize; column++) {
+        const x = margin + column * cellSize;
+        const top = margin + getHalfCellShift(column, cellSize);
+        ctx.rect(x, top, cellSize, height);
+        for (let y = top + cellSize; y < top + height; y += cellSize) {
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + cellSize, y);
+        }
+    }
+    ctx.stroke();
+};
+
 /**
  * Draws a grid on the given canvas context with customizable cell size, margin, and optional offset.
  *
@@ -13,43 +36,48 @@ export const drawGrid = (ctx, width, height, cellSize, margin, offset = false) =
     ctx.strokeStyle = "#ddd";
     ctx.lineWidth = 1;
 
-    for (let y = height + margin; y >= margin; y -= cellSize) {
-        let offsetX = offset && ((height - y) / cellSize) % 2 === 0 ? margin + cellSize / 2 : margin;
+    if (offset) {
         ctx.beginPath();
-        ctx.moveTo(offsetX, y);
+        for (let row = 1; row <= height / cellSize; row++) {
+            const y = margin + height - row * cellSize;
+            const left = margin + getHalfCellShift(row, cellSize);
+            ctx.rect(left, y, width, cellSize);
+            for (let x = left + cellSize; x < left + width; x += cellSize) {
+                ctx.moveTo(x, y);
+                ctx.lineTo(x, y + cellSize);
+            }
+        }
+        ctx.stroke();
+        return;
+    }
+
+    for (let y = height + margin; y >= margin; y -= cellSize) {
+        ctx.beginPath();
+        ctx.moveTo(margin, y);
         ctx.lineTo(width + margin, y);
-        ctx.lineWidth = (!offset && (height + margin - y) % (cellSize * 5) === 0) ? 2 : 1;
+        ctx.lineWidth = (height + margin - y) % (cellSize * 5) === 0 ? 2 : 1;
         ctx.stroke();
 
-        for (let x = offsetX; x <= width + margin; x += cellSize) {
+        for (let x = margin; x <= width + margin; x += cellSize) {
             ctx.beginPath();
             ctx.moveTo(x, y);
             ctx.lineTo(x, Math.max(y - cellSize, margin));
-            ctx.lineWidth = (!offset && (x - margin) % (cellSize * 5) === 0) ? 2 : 1;
+            ctx.lineWidth = (x - margin) % (cellSize * 5) === 0 ? 2 : 1;
             ctx.stroke();
         }
     }
 
-    if (!offset) {
-        ctx.fillStyle = "black";
-        ctx.font = "10px Arial";
-        ctx.textAlign = "center";
+    ctx.fillStyle = "black";
+    ctx.font = "10px Arial";
+    ctx.textAlign = "center";
 
-        for (let x = margin; x <= width + margin; x += cellSize * 5) {
-            if ((x - margin) / cellSize !== 0) {
-                ctx.fillText((x - margin) / cellSize, x, height + margin + 10);
-            }
-        }
-
-        ctx.textAlign = "right";
-        for (let y = height + margin; y >= margin; y -= cellSize * 5) {
-            let yValue = (height + margin - y) / cellSize;
-            ctx.fillText(yValue, margin - 5, y + 3);
-        }
+    for (let x = margin + cellSize * 5; x <= width + margin; x += cellSize * 5) {
+        ctx.fillText((x - margin) / cellSize, x, height + margin + 10);
     }
 
-    ctx.beginPath();
-    ctx.moveTo(margin, height);
-    ctx.lineTo(width, height);
-    ctx.stroke();
+    ctx.textAlign = "right";
+    for (let y = height + margin; y >= margin; y -= cellSize * 5) {
+        const yValue = (height + margin - y) / cellSize;
+        ctx.fillText(yValue, margin - 5, y + 3);
+    }
 };

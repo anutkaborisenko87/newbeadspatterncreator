@@ -1,6 +1,26 @@
 <?php
 return [
+    'editor_draft_archive_error' => 'Не вдалося зберегти чернетку. Спробуйте ще раз.',
+    'bead_dictation' => [
+        'title' => 'Диктування',
+        'row_order' => 'Порядок рядів',
+        'column_order' => 'Напрям читання в ряду',
+        'bottom_up' => 'Знизу вгору',
+        'top_down' => 'Згори вниз',
+        'left_to_right' => 'Зліва направо',
+        'right_to_left' => 'Справа наліво',
+        'total' => 'Усього бісерин',
+        'selected' => 'Вибраний колір',
+        'row' => 'Ряд',
+        'color' => 'Колір',
+        'quantity' => 'Кількість',
+    ],
     'bead_preview' => 'Перегляд бісерної схеми',
+    'bead_preview_offsets' => [
+        'label' => 'Зміщення бісерної сітки',
+        'horizontal' => 'По горизонталі',
+        'vertical' => 'По вертикалі',
+    ],
     'page_not_found_title' => 'Сторінку не знайдено',
     'page_not_found_intro' => 'Вибачте, ми не змогли знайти сторінку, яку ви шукаєте.',
     'page_not_found_button' => 'Повернутися назад',

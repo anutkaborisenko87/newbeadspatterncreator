@@ -7,17 +7,16 @@ const ColorPicker = ({color, title}) => {
     const dispatch = useDispatch();
     const [showColorPicker, setShowColorPicker] = useState(false);
     const {penColor, tool, fillColor} = useSelector((state) => state.grid);
-    const [selectedColor, setSelectedColor] = useState(tool !== "fill" ? penColor : fillColor);
+    const selectedColor = tool === "fill" ? fillColor : penColor;
     const handleColorClick = () => {
         setShowColorPicker(!showColorPicker);
     };
 
     const handleColorChange = (newColor) => {
-        setSelectedColor(newColor);
         if (tool === "fill") {
-            dispatch(setFillColor(selectedColor))
+            dispatch(setFillColor(newColor));
         } else {
-            dispatch(setPenColor(selectedColor));
+            dispatch(setPenColor(newColor));
         }
         setShowColorPicker(false);
     };
