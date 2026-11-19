@@ -1,8 +1,58 @@
 import {useSelector} from "react-redux";
 import Icon from "@/Components/Icon.jsx";
-import {Link} from "@inertiajs/react";
+import {Link, router, usePage} from "@inertiajs/react";
+import {useState} from "react";
 
-const ProfileGalleryItem = ({data, section_slug, per_page}) => {
+function DraftCard({data, labels, color}) {
+    const {props} = usePage();
+    const [failedPreview, setFailedPreview] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const formatter = new Intl.DateTimeFormat(props.current_lang?.slug || props.locale || undefined, {
+        dateStyle: 'short', timeStyle: 'short',
+    });
+    const renderDate = (date, label) => date && (
+        <time dateTime={date} title={label}>{formatter.format(new Date(date))}</time>
+    );
+
+    const deleteDraft = () => {
+        if (!window.confirm(labels.confirm_delete)) return;
+        router.delete(data.deleteUrl, {
+            preserveScroll: true,
+            onStart: () => setDeleting(true),
+            onFinish: () => setDeleting(false),
+            onSuccess: (page) => {
+                const drafts = page.props.data.sections.find((section) => section.slug === 'drafts')?.gallery_items;
+                if (drafts?.data.length === 0 && drafts.prev_page_url) {
+                    router.get(drafts.prev_page_url, {}, {replace: true, preserveScroll: true});
+                }
+            },
+        });
+    };
+
+    return (
+        <article className="galery-item-block-background profile-draft-card" style={{color}}>
+            <div className="profile-draft-preview">
+                {data.preview && failedPreview !== data.preview
+                    ? <img src={data.preview} alt={data.title || labels.preview} onError={() => setFailedPreview(data.preview)} />
+                    : <span>{labels.preview}</span>}
+            </div>
+            {data.deleteUrl && <div className="profile-draft-actions">
+                <Link href={data.link} title={labels.edit} aria-label={labels.edit}>
+                    <Icon name="edit" color={color} size={32} aria-hidden="true" />
+                </Link>
+                <button type="button" onClick={deleteDraft} disabled={deleting} title={labels.delete} aria-label={labels.delete}>
+                    <Icon name="trash" color={color} size={28} aria-hidden="true" />
+                </button>
+            </div>}
+            <footer className="profile-draft-dates">
+                {data.updatedAt !== data.createdAt && renderDate(data.updatedAt, labels.updated)}
+                {renderDate(data.createdAt, labels.created)}
+            </footer>
+        </article>
+    );
+}
+
+const ProfileGalleryItem = ({data, section_slug, per_page, labels}) => {
     const {mode} = useSelector((state) => state.themeMode);
     let color = '';
     switch (mode) {
@@ -18,6 +68,8 @@ const ProfileGalleryItem = ({data, section_slug, per_page}) => {
         default:
             color = '#031945';
     }
+    if (section_slug === 'drafts') return <DraftCard data={data} labels={labels} color={color} />;
+
     const renderFooter = () => {
         switch (section_slug) {
             case 'my_patterns':
@@ -36,13 +88,6 @@ const ProfileGalleryItem = ({data, section_slug, per_page}) => {
                             <p className={`text-[1.3em]`}
                                style={{color: color}}>{data.likes.count}</p>
                         </div>
-                    </div>
-                );
-            case 'drafts':
-                return (
-                    <div
-                        className={`flex flex-col justify-start items-start gap-[2em]`}>
-                        <p className={`text-[1em]`} style={{color: color}}>{data.created_at}</p>
                     </div>
                 );
             default:

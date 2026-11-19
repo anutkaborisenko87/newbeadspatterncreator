@@ -206,21 +206,23 @@ export default function BeadDictation({labels, bottomUp, dictation}) {
                     </li>
                 ))}
             </ul>}
-            {rows.length > 0 && <ol className="dictation-rows" key={bottomUp ? 'bottom-up' : 'top-down'}>
-                {rows.map(({number, runs}) => (
-                    <li key={number}>
-                        <strong>{labels.row} {number}</strong>
-                        <ul>
-                            {runs.map(({column, color, count}, index) => (
-                                <li key={column} aria-label={`${labels.color} ${colorNumbers.get(color)}, ${labels.quantity} ${count}`}>
-                                    <Swatch color={color} />
-                                    <span>×{count}{index < runs.length - 1 && ','}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </li>
-                ))}
-            </ol>}
+            {rows.length > 0 && <div className="dictation-row-scroll" tabIndex={0} key={bottomUp ? 'bottom-up' : 'top-down'}>
+                <ol className="dictation-rows">
+                    {rows.map(({number, runs}) => (
+                        <li key={number}>
+                            <strong>{labels.row} {number}</strong>
+                            <ul>
+                                {runs.map(({column, color, count}, index) => (
+                                    <li key={column} aria-label={`${labels.color} ${colorNumbers.get(color)}, ${labels.quantity} ${count}`}>
+                                        <Swatch color={color} />
+                                        <span>×{count}{index < runs.length - 1 && ','}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </li>
+                    ))}
+                </ol>
+            </div>}
         </aside>
     );
 }

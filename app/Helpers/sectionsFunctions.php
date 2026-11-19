@@ -38,8 +38,8 @@ if (!function_exists('getMainGalleryItemsList')) {
         $userId = request()->route('userId');
         $patternService = app(PatternServiceInterface::class);
 
-        if ($userId) $patternService->getFilteredPatternsForAuthorGalery($userId);
-        if (request()->path() === 'my-profile') {
+        if ($userId) return $patternService->getFilteredPatternsForAuthorGalery($userId);
+        if (request()->routeIs('profile.index')) {
             $userId = Auth::user()->id;
             return [
                 'my_patterns' => $patternService->getAuthorPatterns($userId, false),

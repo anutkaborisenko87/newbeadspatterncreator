@@ -1,23 +1,22 @@
 export async function captureDraftPreview(workspace) {
-    if (!workspace?.isConnected) return null;
-    const {clientWidth: width, clientHeight: height} = workspace;
-    if (!width || !height) return null;
+    const source = workspace?.querySelector('canvas#normal-canvas');
+    if (!source?.isConnected || !source.width || !source.height) return null;
 
-    const {toCanvas} = await import('html-to-image');
-    const scale = Math.min(1, 1200 / width, 900 / height);
-    const canvas = await toCanvas(workspace, {
-        backgroundColor: '#ffffff',
-        canvasWidth: Math.max(1, Math.floor(width * scale)),
-        canvasHeight: Math.max(1, Math.floor(height * scale)),
-        pixelRatio: 1,
-        skipFonts: true,
-    });
+    const scale = Math.min(1, 1200 / source.width, 900 / source.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.floor(source.width * scale));
+    canvas.height = Math.max(1, Math.floor(source.height * scale));
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
 
+    const prefix = 'data:image/jpeg;base64,';
     for (const quality of [0.9, 0.75, 0.55]) {
         const image = canvas.toDataURL('image/jpeg', quality);
-        if (!image.startsWith('data:image/jpeg;base64,')) return null;
-        const preview = image.slice('data:image/jpeg;base64,'.length);
-        if (preview.length <= 600_000) return preview;
+        if (!image.startsWith(prefix)) return null;
+        const preview = image.slice(prefix.length);
+        if (preview.length <= 600_000) return {preview, previewFormat: 'flat-grid'};
     }
 
     return null;

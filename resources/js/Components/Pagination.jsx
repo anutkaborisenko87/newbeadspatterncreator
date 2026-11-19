@@ -1,5 +1,5 @@
 import {Link} from "@inertiajs/react";
-import Icon from "@/components/Icon.jsx";
+import Icon from "@/Components/Icon.jsx";
 import {useSelector} from "react-redux";
 
 const Pagination = ({current_page, first_page_url, last_page, prev_page_url, next_page_url, last_page_url, links}) => {

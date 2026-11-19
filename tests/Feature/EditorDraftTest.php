@@ -16,6 +16,26 @@ class EditorDraftTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_only_the_owner_can_delete_an_unpublished_editor_draft(): void
+    {
+        $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);
+        $owner = User::factory()->create(['login' => 'draft-owner']);
+        $other = User::factory()->create(['login' => 'other-user']);
+        $draft = Pattern::create(['user_id' => $owner->id, 'pattern_data' => ['editorDraftVersion' => '1']]);
+        $published = Pattern::create([
+            'user_id' => $owner->id, 'published' => true, 'pattern_data' => ['editorDraftVersion' => '2'],
+        ]);
+        $url = route('editor-draft.destroy', $draft);
+        $profile = route('profile.index', ['drafts_sort_by' => 'newest']);
+
+        $this->deleteJson($url)->assertUnauthorized();
+        $this->actingAs($other)->deleteJson($url)->assertNotFound();
+        $this->actingAs($owner)->deleteJson(route('editor-draft.destroy', $published))->assertNotFound();
+        $this->from($profile)->delete($url)->assertStatus(303)->assertRedirect($profile);
+        $this->assertModelMissing($draft);
+        $this->assertModelExists($published);
+    }
+
     public function test_starting_from_a_saved_draft_preserves_both_drawings_and_opens_a_blank_workspace(): void
     {
         $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);
@@ -59,13 +79,15 @@ class EditorDraftTest extends TestCase
         $pattern = Pattern::sole();
         $preview = route('editor-draft.preview', ['pattern' => $pattern]);
         $update = route('editor-draft.saved.update', ['pattern' => $pattern]);
-        $this->assertSame($capture, $this->get($preview)->assertHeader('Content-Type', 'image/jpeg')->streamedContent());
+        $legacy = $this->get($preview)->assertHeader('Content-Type', 'image/png')->streamedContent();
+        $this->assertSame([40, 30], array_slice(getimagesizefromstring($legacy), 0, 2));
 
         $this->putJson($update, [...$payload, 'version' => 3, 'preview' => 'not-a-jpeg'])->assertUnprocessable();
         $this->putJson($update, [...$payload, 'version' => 3, 'preview' => null])->assertOk();
         $this->assertSame(2, $pattern->refresh()->editorSnapshot()['previewVersion']);
-        $this->putJson($update, [...$payload, 'version' => 3])->assertOk();
+        $this->putJson($update, [...$payload, 'version' => 3, 'previewFormat' => 'flat-grid'])->assertOk();
         $this->assertSame(3, $pattern->refresh()->editorSnapshot()['previewVersion']);
+        $this->assertSame($capture, $this->get($preview)->assertHeader('Content-Type', 'image/jpeg')->streamedContent());
     }
 
     public function test_saved_draft_opens_and_autosaves_without_replacing_the_working_draft(): void

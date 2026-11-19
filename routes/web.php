@@ -12,7 +12,7 @@ require __DIR__.'/auth.php';
 Route::get('auth/google/redirect', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])->name('google-auth');
 Route::get('auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callbackGoogle']);
 Route::get('/gallery/{userId}', [\App\Http\Controllers\GalleryController::class, 'indexAuthorGallery'])
-    ->where('userId', '[A-Za-z0-9\-_]+');
+    ->where('userId', '[A-Za-z0-9\-_]+')->name('gallery.author');
 
 Route::middleware(['auth', 'verified'])
     ->name('profile.')
@@ -34,8 +34,14 @@ Route::get('/editor/drafts/{pattern}', [PagesController::class, 'editDraft'])
     ->middleware('auth')->whereNumber('pattern')->name('editor-draft.edit');
 Route::put('/editor/drafts/{pattern}', [EditorDraftController::class, 'updateSaved'])
     ->middleware('auth')->whereNumber('pattern')->name('editor-draft.saved.update');
+Route::delete('/editor/drafts/{pattern}', [EditorDraftController::class, 'destroy'])
+    ->middleware('auth')->whereNumber('pattern')->name('editor-draft.destroy');
 Route::post('/editor/drafts/{pattern}', [EditorDraftController::class, 'startFromSaved'])
     ->middleware('auth')->whereNumber('pattern');
+Route::post('/editor/publish/{pattern?}', [EditorDraftController::class, 'publish'])
+    ->middleware('auth')->whereNumber('pattern')->name('editor-draft.publish');
+Route::get('/gallery/patterns/{pattern}/preview', [EditorDraftController::class, 'publishedPreview'])
+    ->whereNumber('pattern')->name('gallery.pattern.preview');
 
 Route::get('/bead-speech/{language}/{number}/{count?}', BeadSpeechController::class)
     ->whereIn('language', ['uk', 'en', 'ru'])

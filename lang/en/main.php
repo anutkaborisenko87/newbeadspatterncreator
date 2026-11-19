@@ -1,5 +1,22 @@
 <?php
 return [
+    'gallery_publication' => [
+        'translation_hint' => 'Enter the name in the interface language. Translations for other languages are added automatically.',
+        'translation_error' => 'Could not translate the category name. Try again.',
+        'category_name_too_long' => 'Use a shorter category name so it can be translated.',
+        'heading' => 'Publish to gallery',
+        'title' => 'Pattern title',
+        'description' => 'Description (optional)',
+        'category' => 'Category',
+        'choose_category' => 'Choose a category',
+        'new_category' => 'Create a new category',
+        'category_name' => 'Category name',
+        'cancel' => 'Cancel',
+        'publish' => 'Publish',
+        'saving' => 'Publishing…',
+        'error' => 'Could not publish the pattern. Try again.',
+        'empty' => 'Add at least one bead before publishing.',
+    ],
     'editor_draft_archive_error' => 'Could not save the draft. Please try again.',
     'bead_dictation' => [
         'title' => 'Dictation',
@@ -51,6 +68,14 @@ return [
     'profile_user_login' => 'Login:',
     'profile_my_patterns_title' => 'My patterns',
     'profile_drafts_title' => 'My drafts',
+    'profile_draft_cards' => [
+        'preview' => 'Pattern preview',
+        'edit' => 'Edit draft',
+        'delete' => 'Delete draft',
+        'confirm_delete' => 'Delete this draft?',
+        'created' => 'Date created',
+        'updated' => 'Last edited',
+    ],
     'profile_liked_title' => 'Liked patterns',
     'profile_wrong_password' => 'The old password entered is incorrect.',
     'profile_updated' => 'Profile updated.'

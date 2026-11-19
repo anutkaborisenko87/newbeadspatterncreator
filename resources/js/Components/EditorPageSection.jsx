@@ -8,13 +8,15 @@ import {useDispatch} from "react-redux";
 import UsedColors from "@/Components/UsedColors.jsx";
 import ColorPicker from "@/Components/ColorPicker.jsx";
 import BeadDictation, {BeadDictationControls, useBeadDictation} from "@/Components/BeadDictation.jsx";
+import GalleryPublicationDialog from "@/Components/GalleryPublicationDialog.jsx";
+import {openCloseModal} from "@/store/modalSlice.js";
 import {useLayoutEffect, useRef, useState} from "react";
-import {startEditorDraft} from '../utils/editorDraft.js';
+import {getDrawing, startEditorDraft} from '../utils/editorDraft.js';
 import {captureDraftPreview} from '../utils/captureDraftPreview.js';
 
-const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersion = 0, workspaceRef}) => {
+const EditorWorkspace = ({data, onNewDraft, onPublish, archiving, archiveError, canvasVersion = 0, workspaceRef}) => {
     const dispatch = useDispatch();
-    const {bead_preview_label, bead_preview_offsets, bead_dictation} = usePage().props;
+    const {bead_preview_label, bead_preview_offsets, bead_dictation, galleryPublication} = usePage().props;
     const [showBeadPreview, setShowBeadPreview] = useState(true);
     const [offsetDirection, setOffsetDirection] = useState('horizontal');
     const [showDictation, setShowDictation] = useState(true);
@@ -112,8 +114,13 @@ const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersi
                         >
                             <Icon name="plus" color={color} size={25} aria-hidden="true" />
                         </button>
-                        <Icon className="cursor-pointer" name="save" color={color} size={25}
-                              title={data.save_draft_title}/>
+                        <button type="button"
+                                className="inline-flex cursor-pointer items-center border-0 bg-transparent p-0 disabled:cursor-default disabled:opacity-50"
+                                title={galleryPublication.labels.heading} aria-label={galleryPublication.labels.heading}
+                                disabled={archiving}
+                                onClick={onPublish ?? (() => dispatch(openCloseModal({open: true, mode: 'login'})))}>
+                            <Icon name="save" color={color} size={25} aria-hidden="true" />
+                        </button>
                     </div>
                     {archiveError && <p role="alert">{archiveError}</p>}
                     <BeadDictationControls
@@ -129,7 +136,7 @@ const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersi
                 </div>
             </div>
             <div className="editor-workspace" ref={workspaceRef}>
-                <div className="max-w-full overflow-auto" inert={archiving ? '' : undefined}>
+                <div className="editor-canvases" inert={archiving ? '' : undefined}>
                     <div className="flex w-max items-start gap-[1em]" key={canvasVersion}>
                         <CanvasGrid clipboardRef={clipboardRef} />
                         {showBeadPreview && <CanvasGrid offsetDirection={offsetDirection} clipboardRef={clipboardRef} />}
@@ -150,7 +157,7 @@ const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersi
 
 function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, workingUrl}) {
     const store = useStore();
-    const {editor_draft_archive_error} = usePage().props;
+    const {editor_draft_archive_error, galleryPublication} = usePage().props;
     const initialDraft = useRef(serverDraft);
     const sessionRef = useRef(null);
     const workspaceRef = useRef(null);
@@ -158,6 +165,7 @@ function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, worki
     const [archiving, setArchiving] = useState(false);
     const [archiveError, setArchiveError] = useState(null);
     const [canvasVersion, setCanvasVersion] = useState(0);
+    const [publishing, setPublishing] = useState(false);
 
     useLayoutEffect(() => {
         const session = startEditorDraft(store, owner, url, initialDraft.current, savedDraftId,
@@ -183,9 +191,21 @@ function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, worki
         setArchiving(false);
     };
 
+    const publicationSnapshot = async () => {
+        const drawing = getDrawing(store.getState().grid);
+        const version = Math.max((initialDraft.current?.version ?? 0) + 1, Date.now() * 1000 + 999);
+        const preview = drawing.gridWidth && drawing.gridHeight
+            ? await captureDraftPreview(workspaceRef.current).catch(() => null) : null;
+        return {owner, drawing, version, ...preview};
+    };
+
     return ready ? (
-        <EditorWorkspace data={data} onNewDraft={archive} archiving={archiving}
-                         archiveError={archiveError} canvasVersion={canvasVersion} workspaceRef={workspaceRef} />
+        <>
+            <EditorWorkspace data={data} onNewDraft={archive} onPublish={() => setPublishing(true)} archiving={archiving}
+                             archiveError={archiveError} canvasVersion={canvasVersion} workspaceRef={workspaceRef} />
+            {publishing && <GalleryPublicationDialog config={galleryPublication} getSnapshot={publicationSnapshot}
+                                                     onClose={() => setPublishing(false)} />}
+        </>
     ) : null;
 }
 

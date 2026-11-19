@@ -10,6 +10,7 @@ use App\QueryFilters\DraftPatternsSortBy;
 use App\QueryFilters\LikedPatternsSortBy;
 use App\QueryFilters\MyPatternsSortBy;
 use App\QueryFilters\PatternCategoryFilter;
+use App\QueryFilters\PatternsSearch;
 use App\QueryFilters\PatternsSortBy;
 use Illuminate\Pipeline\Pipeline;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -32,9 +33,8 @@ class PatternService implements PatternServiceInterface
     {
         $decodedUserId = decodeModelId($userId);
         if (!$decodedUserId) throw new NotFoundHttpException(__('main.wrong_user_id'));
-        $patterns = Pattern::query()->where('shared', true)->whereHas('user', function ($query) use ($decodedUserId) {
-            $query->where('user_id', $decodedUserId);
-        });
+        $patterns = $this->model::query()->where('shared', true)->where('user_id', $decodedUserId)
+            ->with('user:id,login', 'likes', 'comments');
         return self::getPatternsList($patterns, 'page', PatternsSortBy::class);
     }
 
@@ -65,9 +65,13 @@ class PatternService implements PatternServiceInterface
             ->send($queryBuilder)
             ->through([
                 PatternCategoryFilter::class,
+                ...($pageName === 'page' ? [PatternsSearch::class] : []),
                 $sortByClass
             ])->thenReturn();
         $patterns = $patterns->paginate(5, ['*'], $pageName);
+        if (in_array($pageName, ['page', 'drafts_page'], true)) {
+            $patterns->withQueryString();
+        }
         $data = PatternGalleryDTO::collection($patterns->items());
         $response = $patterns->toArray();
         $response['data'] = $data;

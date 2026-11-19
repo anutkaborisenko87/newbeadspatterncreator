@@ -21,7 +21,8 @@ final readonly class PatternGalleryDTO
         public ?string $pngLink,
         public ?string $jpgLink,
         public ?DateTime $created_at,
-        public ?DateTime $updated_at
+        public ?DateTime $updated_at,
+        public ?string $deleteUrl = null,
 
     ) {
     }
@@ -33,11 +34,11 @@ final readonly class PatternGalleryDTO
         $encodedId = encodeModelId($pattern->id);
 
         $galleryUrl = $pattern->user?->id
-            ? 'gallery/' . encodeModelId($pattern->user->id)
-            : 'gallery';
+            ? route('gallery.author', ['userId' => encodeModelId($pattern->user->id)], absolute: false)
+            : route('page', ['slug' => 'gallery'], absolute: false);
 
         if ($authUser && $authUser->id === $pattern->user?->id) {
-            $galleryUrl = 'my-gallery';
+            $galleryUrl = route('profile.index', absolute: false);
         }
 
         $itemLink = $authUser && $authUser->id === $pattern->user?->id
@@ -58,7 +59,9 @@ final readonly class PatternGalleryDTO
             title: $pattern->title,
             description: $pattern->description,
             photo: $pattern->photo,
-            preview: $draftPreview ?? $pattern->preview_image,
+            preview: $draftPreview ?? ($pattern->published && $pattern->shared && isset($pattern->pattern_data['galleryPublicationId'])
+                ? route('gallery.pattern.preview', ['pattern' => $pattern], absolute: false)
+                : $pattern->preview_image),
             link: $draftPreview ? route('editor-draft.edit', ['pattern' => $pattern], absolute: false) : $itemLink,
 
             author: [
@@ -79,7 +82,8 @@ final readonly class PatternGalleryDTO
             pngLink: $pattern->pngLink,
             jpgLink: $pattern->jpgLink,
             created_at: $pattern->created_at,
-            updated_at: $pattern->updated_at
+            updated_at: $pattern->updated_at,
+            deleteUrl: $draftPreview ? route('editor-draft.destroy', ['pattern' => $pattern], absolute: false) : null,
         );
     }
 
@@ -109,6 +113,9 @@ final readonly class PatternGalleryDTO
             'pngLink' => $this->pngLink,
             'jpgLink' => $this->jpgLink,
             'created_at' => $this->created_at . '/' . $this->updated_at,
+            'deleteUrl' => $this->deleteUrl,
+            'createdAt' => $this->created_at?->format(DATE_ATOM),
+            'updatedAt' => $this->updated_at?->format(DATE_ATOM),
         ];
     }
 }

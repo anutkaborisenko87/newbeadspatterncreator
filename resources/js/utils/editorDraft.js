@@ -33,7 +33,7 @@ async function saveDraft(url, owner, snapshot, keepalive, method = 'PUT') {
     });
 }
 
-function getDrawing(grid) {
+export function getDrawing(grid) {
     const {gridWidth, gridHeight, margin, cellSize} = grid;
     const drawnCells = Object.fromEntries(Object.entries(grid.drawnCells).filter(([key]) => {
         const [x, y] = key.split(',').map(Number);
@@ -86,7 +86,7 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
             if (stopped || archiving) return;
             inFlight = snapshot;
             const response = await saveDraft(url, owner,
-                preview && pending === snapshot ? {...snapshot, preview} : snapshot, false);
+                preview && pending === snapshot ? {...snapshot, ...preview} : snapshot, false);
             if (response.ok) {
                 const result = await response.json();
                 latestVersion = Math.max(latestVersion, result.version);
@@ -140,7 +140,7 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
         try {
             const preview = capturePreview ? await capturePreview() : null;
             if (capturePreview && !preview) throw new Error('Draft preview capture failed');
-            const payload = {...snapshot, preview};
+            const payload = {...snapshot, ...preview};
             if (savedDraftId != null) {
                 const backup = readCachedDraft(workingKey);
                 if (backup) {

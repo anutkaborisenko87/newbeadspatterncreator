@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Contracts\Services\PageServiceInterface;
 use App\Models\EditorDraft;
 use App\Models\Pattern;
+use App\Models\PatternCategory;
 use Inertia\Inertia;
 
 class PagesController extends Controller
@@ -38,7 +39,18 @@ class PagesController extends Controller
         abort_if($data === null, 404);
         $props = $data->toArray();
 
-        if (in_array('editor_page_section', array_column($data->sections, 'slug'), true) && auth()->check()) {
+        $editor = in_array('editor_page_section', array_column($data->sections, 'slug'), true);
+        if ($editor) {
+            $props['galleryPublication'] = ['labels' => __('main.gallery_publication')];
+        }
+        if ($editor && auth()->check()) {
+            $props['galleryPublication'] += [
+                'url' => route('editor-draft.publish', $savedDraft ? ['pattern' => $savedDraft] : [], absolute: false),
+                'categories' => PatternCategory::with('translate')->get()
+                    ->filter(fn ($category) => $category->translate)
+                    ->map(fn ($category) => ['id' => $category->id, 'title' => $category->translate->title])
+                    ->sortBy('title')->values(),
+            ];
             if ($savedDraft) {
                 $props['editorDraft'] = $savedDraft->editorSnapshot();
                 $props['editorDraftUrl'] = route('editor-draft.saved.update', ['pattern' => $savedDraft], absolute: false);

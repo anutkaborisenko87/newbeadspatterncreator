@@ -3,16 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Models\EditorDraft;
+use App\Models\Language;
 use App\Models\Pattern;
+use App\Models\PatternCategory;
+use App\Services\CategoryNameTranslator;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EditorDraftController extends Controller
 {
+    public function destroy(Request $request, Pattern $pattern): \Illuminate\Http\RedirectResponse
+    {
+        abort_unless($pattern->isEditorDraftFor($request->user()->getKey()), 404);
+        abort_unless(Pattern::whereKey($pattern->getKey())->where('user_id', $request->user()->getKey())
+            ->where('published', false)->where('shared', false)->delete(), 404);
+
+        return back(303);
+    }
+
     public function update(Request $request): JsonResponse
     {
         $userId = $request->user()->getKey();
@@ -98,7 +111,7 @@ class EditorDraftController extends Controller
         return response()->json(['editorUrl' => route('page', ['slug' => 'editor'], absolute: false)]);
     }
 
-    private function createProfileDraft(int $userId, int $version, array $drawing, ?string $preview = null): void
+    private function createProfileDraft(int $userId, int $version, array $drawing, ?array $preview = null): void
     {
         Pattern::create([
             'user_id' => $userId,
@@ -111,8 +124,24 @@ class EditorDraftController extends Controller
     public function preview(Request $request, Pattern $pattern): StreamedResponse
     {
         abort_unless($pattern->isEditorDraftFor($request->user()->getKey()), 404);
+
+        return $this->renderPreview($pattern);
+    }
+
+    public function publishedPreview(Pattern $pattern): StreamedResponse
+    {
+        abort_unless($pattern->published && $pattern->shared && isset($pattern->pattern_data['galleryPublicationId']), 404);
+
+        return $this->renderPreview($pattern);
+    }
+
+    private function renderPreview(Pattern $pattern): StreamedResponse
+    {
         $drawing = $pattern->pattern_data;
-        if (isset($drawing['editorPreview'])) {
+        $previewVersion = $drawing['editorPreviewVersion'] ?? null;
+        $drawingVersion = $drawing['editorEditVersion'] ?? $drawing['editorDraftVersion'] ?? $previewVersion;
+        if (isset($drawing['editorPreview']) && ($drawing['editorPreviewFormat'] ?? null) === 'flat-grid'
+            && (int) $previewVersion === (int) $drawingVersion) {
             return response()->stream(static function () use ($drawing) {
                 echo base64_decode($drawing['editorPreview']);
             }, 200, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
@@ -145,6 +174,84 @@ class EditorDraftController extends Controller
         }, 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'private, no-store']);
     }
 
+    public function publish(Request $request, CategoryNameTranslator $translator, ?Pattern $pattern = null): JsonResponse
+    {
+        $userId = $request->user()->getKey();
+        abort_if($pattern && (int) $pattern->user_id !== (int) $userId, 404);
+        $snapshot = $this->validateSnapshot($request);
+        if (!$snapshot['drawing']['drawnCells']) {
+            throw ValidationException::withMessages(['drawing' => __('main.gallery_publication.empty')]);
+        }
+        $preview = $this->validatePreview($request);
+        $createCategory = $request->input('category') === 'new';
+        $rules = [
+            'publicationId' => ['required', 'uuid'],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'category' => $createCategory ? ['required', Rule::in(['new'])] : ['required', 'integer', Rule::exists('pattern_categories', 'id')],
+        ];
+        if ($createCategory) {
+            $rules['categoryName'] = ['bail', 'required', 'string', 'max:255', function ($attribute, $value, $fail) {
+                if (strlen($value) > 500) {
+                    $fail(__('main.gallery_publication.category_name_too_long'));
+                }
+            }];
+        }
+        $fields = $request->validate($rules);
+
+        $alreadyPublished = fn () => Pattern::where('user_id', $userId)
+            ->where('pattern_data->galleryPublicationId', $fields['publicationId'])
+            ->when($pattern, fn ($query) => $query->whereKey($pattern->getKey()))
+            ->exists();
+        $result = ['galleryUrl' => route('page', ['slug' => 'gallery'], absolute: false)];
+        if ($alreadyPublished()) {
+            return response()->json($result);
+        }
+        abort_if($pattern && !$pattern->isEditorDraftFor($userId), 404);
+
+        $translations = $createCategory
+            ? $translator->translate($fields['categoryName'], app()->getLocale(), Language::getAllEnableLanguages())
+            : [];
+
+        DB::transaction(function () use ($userId, $pattern, $snapshot, $preview, $fields, $createCategory, $translations, $alreadyPublished) {
+            User::query()->lockForUpdate()->findOrFail($userId);
+            if ($alreadyPublished()) {
+                return;
+            }
+
+            $publication = $pattern ? Pattern::query()->lockForUpdate()->findOrFail($pattern->getKey()) : new Pattern;
+            if ($pattern) {
+                abort_unless($publication->isEditorDraftFor($userId), 404);
+                abort_if($publication->editorSnapshot()['version'] > $snapshot['version'], 409);
+            }
+            if ($createCategory) {
+                $category = PatternCategory::create();
+                foreach ($translations as $languageId => $title) {
+                    $category->translations()->create(['language_id' => $languageId, 'title' => $title]);
+                }
+                $categoryId = $category->getKey();
+            } else {
+                $categoryId = $fields['category'];
+            }
+
+            $publication->fill([
+                'user_id' => $userId,
+                'title' => $fields['title'],
+                'description' => $fields['description'] ?? null,
+                'published' => true,
+                'shared' => true,
+                'pattern_data' => [
+                    ...$snapshot['drawing'],
+                    'galleryPublicationId' => $fields['publicationId'],
+                    ...$this->previewData($preview, $snapshot['version']),
+                ],
+            ])->save();
+            $publication->category()->sync([$categoryId]);
+        });
+
+        return response()->json($result);
+    }
+
     public function updateSaved(Request $request, Pattern $pattern): JsonResponse
     {
         $userId = $request->user()->getKey();
@@ -173,9 +280,13 @@ class EditorDraftController extends Controller
         return response()->json(['version' => $version]);
     }
 
-    private function validatePreview(Request $request): ?string
+    private function validatePreview(Request $request): ?array
     {
-        $preview = $request->validate(['preview' => ['nullable', 'string', 'max:600000']])['preview'] ?? null;
+        $fields = $request->validate([
+            'preview' => ['nullable', 'string', 'max:600000'],
+            'previewFormat' => ['sometimes', 'in:flat-grid'],
+        ]);
+        $preview = $fields['preview'] ?? null;
         if ($preview === null) {
             return null;
         }
@@ -186,12 +297,12 @@ class EditorDraftController extends Controller
             throw ValidationException::withMessages(['preview' => 'Invalid editor preview.']);
         }
 
-        return $preview;
+        return ['editorPreview' => $preview, 'editorPreviewFormat' => $fields['previewFormat'] ?? null];
     }
 
-    private function previewData(?string $preview, int $version): array
+    private function previewData(?array $preview, int $version): array
     {
-        return $preview === null ? [] : ['editorPreview' => $preview, 'editorPreviewVersion' => $version];
+        return $preview === null ? [] : [...$preview, 'editorPreviewVersion' => $version];
     }
 
     private function validateSnapshot(Request $request): array
