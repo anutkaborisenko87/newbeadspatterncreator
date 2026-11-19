@@ -43,6 +43,7 @@ class PagesController extends Controller
                 $props['editorDraft'] = $savedDraft->editorSnapshot();
                 $props['editorDraftUrl'] = route('editor-draft.saved.update', ['pattern' => $savedDraft], absolute: false);
                 $props['editorSavedDraftId'] = $savedDraft->getKey();
+                $props['editorWorkingDraftUrl'] = route('editor-draft.update', absolute: false);
             } else {
                 $props['editorDraft'] = EditorDraft::find(auth()->id())?->snapshot();
                 $props['editorDraftUrl'] = route('editor-draft.update', absolute: false);

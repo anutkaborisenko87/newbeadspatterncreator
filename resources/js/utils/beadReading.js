@@ -36,3 +36,16 @@ export function orderBeadRows(rows, bottomUp, leftToRight) {
         return {number: Math.abs(gridRow - firstRow) + 1, runs};
     });
 }
+
+export function* beadDictationPhrases(rows, colorNumbers, labels) {
+    for (const {number, runs} of rows) {
+        yield {text: `${labels.row} ${number}.`, clip: `${number}`};
+        for (const {color, count} of runs) {
+            const colorNumber = colorNumbers.get(color);
+            yield {
+                text: `${labels.color} ${colorNumber}, ${labels.quantity} ${count}.`,
+                clip: `${colorNumber}/${count}`,
+            };
+        }
+    }
+}

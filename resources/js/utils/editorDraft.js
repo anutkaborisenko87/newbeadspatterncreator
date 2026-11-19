@@ -47,8 +47,9 @@ function afterVersion(version) {
     return Math.max(version + 1, Date.now() * 1000 + Math.floor(Math.random() * 1000));
 }
 
-export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, capturePreview) {
-    const key = savedDraftId == null ? `editor-draft:${owner}` : `editor-draft:${owner}:saved:${savedDraftId}`;
+export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, capturePreview, workingUrl) {
+    const workingKey = `editor-draft:${owner}`;
+    const key = savedDraftId == null ? workingKey : `${workingKey}:saved:${savedDraftId}`;
     const localDraft = readCachedDraft(key);
     let pending = (localDraft?.version ?? 0) > (serverDraft?.version ?? 0) ? localDraft : null;
     let pendingSince = Date.now();
@@ -62,6 +63,7 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
     let sending = false;
     let stopped = false;
     let archiving = false;
+    let restartOperation;
     let inFlight = null;
 
     store.dispatch(loadEditorDraft(initialDraft?.drawing));
@@ -107,6 +109,7 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
         const grid = store.getState().grid;
         if (grid.drawnCells === previous.drawnCells && grid.gridWidth === previous.gridWidth && grid.gridHeight === previous.gridHeight) return;
         previous = grid;
+        restartOperation = undefined;
         version = latestVersion = afterVersion(latestVersion);
         if (!pending || pending === inFlight) pendingSince = Date.now();
         pending = {version, drawing: getDrawing(grid)};
@@ -137,13 +140,27 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
         try {
             const preview = capturePreview ? await capturePreview() : null;
             if (capturePreview && !preview) throw new Error('Draft preview capture failed');
-            const response = await saveDraft(url, owner, preview ? {...snapshot, preview} : snapshot, false, 'POST');
+            const payload = {...snapshot, preview};
+            if (savedDraftId != null) {
+                const backup = readCachedDraft(workingKey);
+                if (backup) {
+                    const backupResponse = await saveDraft(workingUrl, owner, backup, false);
+                    if (!backupResponse.ok) throw new Error('Working draft backup failed');
+                }
+                restartOperation ??= afterVersion(latestVersion);
+                payload.operation = restartOperation;
+            }
+            const response = await saveDraft(url, owner, payload, false, 'POST');
             if (!response.ok) throw new Error('Draft archive failed');
             const nextDraft = await response.json();
             if (stopped) return false;
+            pending = null;
+            if (savedDraftId != null) {
+                cacheDraft(key, snapshot);
+                return nextDraft.editorUrl;
+            }
             version = nextDraft.version;
             latestVersion = Math.max(latestVersion, version);
-            pending = null;
             cacheDraft(key, nextDraft);
             store.dispatch(loadEditorDraft(nextDraft.drawing));
             previous = store.getState().grid;

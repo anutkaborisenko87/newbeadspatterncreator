@@ -1,4 +1,4 @@
-import {usePage} from "@inertiajs/react";
+import {router, usePage} from "@inertiajs/react";
 import Icon from "@/Components/Icon.jsx";
 import {useSelector, useStore} from "react-redux";
 import {CanvasGrid} from "@/Components/CanvasGrid.jsx";
@@ -7,7 +7,7 @@ import {redo, setDrawnCells, setTool, undo} from "@/store/gridSlice.js";
 import {useDispatch} from "react-redux";
 import UsedColors from "@/Components/UsedColors.jsx";
 import ColorPicker from "@/Components/ColorPicker.jsx";
-import BeadDictation, {BeadDictationControls} from "@/Components/BeadDictation.jsx";
+import BeadDictation, {BeadDictationControls, useBeadDictation} from "@/Components/BeadDictation.jsx";
 import {useLayoutEffect, useRef, useState} from "react";
 import {startEditorDraft} from '../utils/editorDraft.js';
 import {captureDraftPreview} from '../utils/captureDraftPreview.js';
@@ -20,6 +20,7 @@ const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersi
     const [showDictation, setShowDictation] = useState(true);
     const [bottomUp, setBottomUp] = useState(true);
     const [leftToRight, setLeftToRight] = useState(true);
+    const dictation = useBeadDictation(bead_dictation, showDictation, bottomUp, leftToRight);
     const clipboardRef = useRef(null);
     const {mode} = useSelector((state) => state.themeMode);
     let color = '';
@@ -123,6 +124,7 @@ const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersi
                         setBottomUp={setBottomUp}
                         leftToRight={leftToRight}
                         setLeftToRight={setLeftToRight}
+                        dictation={dictation}
                     />
                 </div>
             </div>
@@ -137,7 +139,7 @@ const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersi
                     <BeadDictation
                         labels={bead_dictation}
                         bottomUp={bottomUp}
-                        leftToRight={leftToRight}
+                        dictation={dictation}
                     />
                 )}
             </div>
@@ -146,7 +148,7 @@ const EditorWorkspace = ({data, onNewDraft, archiving, archiveError, canvasVersi
     );
 };
 
-function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId}) {
+function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, workingUrl}) {
     const store = useStore();
     const {editor_draft_archive_error} = usePage().props;
     const initialDraft = useRef(serverDraft);
@@ -159,32 +161,36 @@ function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId}) {
 
     useLayoutEffect(() => {
         const session = startEditorDraft(store, owner, url, initialDraft.current, savedDraftId,
-            () => captureDraftPreview(workspaceRef.current));
+            () => captureDraftPreview(workspaceRef.current), workingUrl);
         sessionRef.current = session;
         setReady(true);
         return session.stop;
-    }, [store, owner, url, savedDraftId]);
+    }, [store, owner, url, savedDraftId, workingUrl]);
 
     const archive = async () => {
         setArchiveError(null);
         setArchiving(true);
         try {
-            if (await sessionRef.current.archive()) setCanvasVersion((value) => value + 1);
+            const result = await sessionRef.current.archive();
+            if (typeof result === 'string') {
+                router.visit(result, {onFinish: () => setArchiving(false)});
+                return;
+            }
+            if (result) setCanvasVersion((value) => value + 1);
         } catch {
             setArchiveError(editor_draft_archive_error);
-        } finally {
-            setArchiving(false);
         }
+        setArchiving(false);
     };
 
     return ready ? (
-        <EditorWorkspace data={data} onNewDraft={savedDraftId == null ? archive : undefined} archiving={archiving}
+        <EditorWorkspace data={data} onNewDraft={archive} archiving={archiving}
                          archiveError={archiveError} canvasVersion={canvasVersion} workspaceRef={workspaceRef} />
     ) : null;
 }
 
 export default function EditorPageSection({data}) {
-    const {user, editorDraft, editorDraftUrl, editorSavedDraftId} = usePage().props;
+    const {user, editorDraft, editorDraftUrl, editorSavedDraftId, editorWorkingDraftUrl} = usePage().props;
 
     return user && editorDraftUrl ? (
         <AuthenticatedEditor
@@ -194,6 +200,7 @@ export default function EditorPageSection({data}) {
             url={editorDraftUrl}
             serverDraft={editorDraft}
             savedDraftId={editorSavedDraftId}
+            workingUrl={editorWorkingDraftUrl}
         />
     ) : <EditorWorkspace data={data} />;
 }

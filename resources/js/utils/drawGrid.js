@@ -1,12 +1,14 @@
 export const getHalfCellShift = (index, cellSize) => (index % 2) * cellSize / 2;
 
+const gridStrokeStyle = "rgba(180, 180, 180, 0.45)";
+
 export const getHorizontalPosition = (x, row, width, cellSize) => {
     const shifted = x - row * cellSize / 2;
     return ((shifted % width) + width) % width;
 };
 
 export const drawVerticalGrid = (ctx, width, height, cellSize, margin) => {
-    ctx.strokeStyle = "#ddd";
+    ctx.strokeStyle = gridStrokeStyle;
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let column = 0; column < width / cellSize; column++) {
@@ -32,8 +34,7 @@ export const drawVerticalGrid = (ctx, width, height, cellSize, margin) => {
  * @param {boolean} [offset=false] - Whether to offset alternate rows of the grid to create a staggered effect.
  */
 export const drawGrid = (ctx, width, height, cellSize, margin, offset = false) => {
-    ctx.clearRect(0, 0, width, height);
-    ctx.strokeStyle = "#ddd";
+    ctx.strokeStyle = gridStrokeStyle;
     ctx.lineWidth = 1;
 
     if (offset) {

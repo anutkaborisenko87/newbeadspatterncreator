@@ -70,11 +70,6 @@ export const CanvasGrid = ({ offsetDirection = null, clipboardRef }) => {
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (vertical) {
-            drawVerticalGrid(ctx, gridWidth, gridHeight, cellSize, margin);
-        } else {
-            drawGrid(ctx, gridWidth, gridHeight, cellSize, margin, horizontal);
-        }
         ctx.save();
         Object.entries(drawnCells).forEach(([cell, color]) => {
             let [x, y] = cell.split(",").map(Number);
@@ -88,6 +83,12 @@ export const CanvasGrid = ({ offsetDirection = null, clipboardRef }) => {
             }
             ctx.fillRect(x, y, cellSize, cellSize);
         });
+
+        if (vertical) {
+            drawVerticalGrid(ctx, gridWidth, gridHeight, cellSize, margin);
+        } else {
+            drawGrid(ctx, gridWidth, gridHeight, cellSize, margin, horizontal);
+        }
 
         if (selectionStart && selectionEnd && tool === "selection") {
             const selLeft = Math.min(selectionStart.x, selectionEnd.x);

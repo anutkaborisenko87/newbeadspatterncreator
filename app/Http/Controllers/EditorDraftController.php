@@ -47,12 +47,7 @@ class EditorDraftController extends Controller
             }
             abort_if($draft->exists && $draft->version > $version, 409);
 
-            Pattern::create([
-                'user_id' => $userId,
-                'published' => false,
-                'shared' => false,
-                'pattern_data' => [...$drawing, 'editorDraftVersion' => (string) $version, ...$this->previewData($preview, $version)],
-            ]);
+            $this->createProfileDraft($userId, $version, $drawing, $preview);
 
             $draft->fill([
                 'version' => $version + 1,
@@ -63,6 +58,54 @@ class EditorDraftController extends Controller
         });
 
         return response()->json($snapshot);
+    }
+
+    public function startFromSaved(Request $request, Pattern $pattern): JsonResponse
+    {
+        $userId = $request->user()->getKey();
+        abort_unless($pattern->isEditorDraftFor($userId), 404);
+        $snapshot = $this->validateSnapshot($request);
+        $preview = $this->validatePreview($request);
+        $operation = (int) $request->validate([
+            'operation' => ['required', 'integer', 'min:1', 'max:9007199254740990'],
+        ])['operation'];
+
+        DB::transaction(function () use ($pattern, $userId, $snapshot, $preview, $operation) {
+            User::query()->lockForUpdate()->findOrFail($userId);
+            $saved = Pattern::query()->lockForUpdate()->findOrFail($pattern->getKey());
+            abort_unless($saved->isEditorDraftFor($userId), 404);
+            if ($operation <= ($saved->pattern_data['editorRestartVersion'] ?? 0)) {
+                return;
+            }
+            abort_if((int) $snapshot['version'] < $saved->editorSnapshot()['version'], 409);
+
+            $version = (int) $snapshot['version'];
+            $drawing = $snapshot['drawing'];
+            $saved->pattern_data = [...$saved->pattern_data, ...$drawing, 'editorEditVersion' => $version,
+                'editorRestartVersion' => $operation, ...$this->previewData($preview, $version)];
+            $saved->save();
+
+            $working = EditorDraft::firstOrNew(['user_id' => $userId]);
+            if (!empty($working->drawing['drawnCells'])) {
+                $this->createProfileDraft($userId, $working->version, $working->drawing);
+            }
+            $working->fill([
+                'version' => max($version, $working->version ?? 0) + 1,
+                'drawing' => [...$drawing, 'drawnCells' => []],
+            ])->save();
+        });
+
+        return response()->json(['editorUrl' => route('page', ['slug' => 'editor'], absolute: false)]);
+    }
+
+    private function createProfileDraft(int $userId, int $version, array $drawing, ?string $preview = null): void
+    {
+        Pattern::create([
+            'user_id' => $userId,
+            'published' => false,
+            'shared' => false,
+            'pattern_data' => [...$drawing, 'editorDraftVersion' => (string) $version, ...$this->previewData($preview, $version)],
+        ]);
     }
 
     public function preview(Request $request, Pattern $pattern): StreamedResponse

@@ -16,6 +16,33 @@ class EditorDraftTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_starting_from_a_saved_draft_preserves_both_drawings_and_opens_a_blank_workspace(): void
+    {
+        $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);
+        $owner = User::factory()->create(['login' => 'draft-owner']);
+        $this->actingAs($owner);
+        $workingUrl = route('editor-draft.update');
+        $drawing = ['gridWidth' => 40, 'gridHeight' => 30, 'drawnCells' => ['20,40' => '#0000ff']];
+        $payload = ['owner' => $owner->id, 'version' => 2, 'drawing' => $drawing];
+        $this->postJson($workingUrl, $payload)->assertOk();
+        $saved = Pattern::sole();
+        $this->putJson($workingUrl, [...$payload, 'version' => 5])->assertOk();
+
+        $edited = [...$drawing, 'drawnCells' => ['30,30' => '#ff0000']];
+        $restart = [...$payload, 'version' => 4, 'drawing' => $edited, 'operation' => 6];
+        $url = route('editor-draft.edit', ['pattern' => $saved]);
+        $this->postJson($url, $restart)->assertOk()
+            ->assertJsonPath('editorUrl', route('page', ['slug' => 'editor'], absolute: false));
+        $this->assertSame($edited, $saved->refresh()->editorSnapshot()['drawing']);
+        $this->assertSame($drawing, Pattern::whereKeyNot($saved->id)->sole()->editorSnapshot()['drawing']);
+        $this->assertSame(['version' => 6, 'drawing' => [...$drawing, 'drawnCells' => []]], EditorDraft::findOrFail($owner->id)->snapshot());
+
+        $this->putJson($workingUrl, [...$payload, 'version' => 7])->assertOk();
+        $this->postJson($url, $restart)->assertOk();
+        $this->assertDatabaseCount('patterns', 2);
+        $this->assertSame(7, EditorDraft::findOrFail($owner->id)->version);
+    }
+
     public function test_saved_preview_includes_the_client_capture_for_the_current_version(): void
     {
         $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);

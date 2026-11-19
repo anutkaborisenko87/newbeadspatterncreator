@@ -429,6 +429,42 @@ ul {
     gap: 0.5rem;
 }
 
+.dictation-panel .dictation-speech-button {
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 1px solid #c6d4ee;
+    border-radius: 8px;
+    background: #e5edfc;
+    color: inherit;
+}
+
+.dictation-panel .dictation-speech-button:disabled {
+    cursor: default;
+    opacity: 0.5;
+}
+
+.dictation-speech-icon {
+    width: 0.8rem;
+    height: 0.8rem;
+    background: currentColor;
+}
+
+.dictation-speech-icon-play {
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.dictation-speech-icon-pause {
+    background: transparent;
+    border-inline: 0.23rem solid currentColor;
+}
+
+.dictation-speech-status {
+    flex-basis: 100%;
+}
+
 .dictation-stats > div {
     padding: 0.55rem 0.7rem;
     border: 1px solid #d8e2f4;

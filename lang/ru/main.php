@@ -3,6 +3,12 @@ return [
     'editor_draft_archive_error' => 'Не удалось сохранить черновик. Попробуйте ещё раз.',
     'bead_dictation' => [
         'title' => 'Диктовка',
+        'speech_language' => 'ru-RU',
+        'speech_start' => 'Начать озвучивание',
+        'speech_stop' => 'Остановить озвучивание',
+        'speech_pause' => 'Приостановить озвучивание',
+        'speech_resume' => 'Продолжить озвучивание',
+        'speech_unavailable' => 'Не удалось воспроизвести озвучивание.',
         'row_order' => 'Порядок рядов',
         'column_order' => 'Направление чтения в ряду',
         'bottom_up' => 'Снизу вверх',

@@ -3,6 +3,12 @@ return [
     'editor_draft_archive_error' => 'Не вдалося зберегти чернетку. Спробуйте ще раз.',
     'bead_dictation' => [
         'title' => 'Диктування',
+        'speech_language' => 'uk-UA',
+        'speech_start' => 'Почати озвучення',
+        'speech_stop' => 'Зупинити озвучення',
+        'speech_pause' => 'Призупинити озвучення',
+        'speech_resume' => 'Продовжити озвучення',
+        'speech_unavailable' => 'Не вдалося відтворити озвучення.',
         'row_order' => 'Порядок рядів',
         'column_order' => 'Напрям читання в ряду',
         'bottom_up' => 'Знизу вгору',

@@ -3,6 +3,12 @@ return [
     'editor_draft_archive_error' => 'Could not save the draft. Please try again.',
     'bead_dictation' => [
         'title' => 'Dictation',
+        'speech_language' => 'en',
+        'speech_start' => 'Start dictation',
+        'speech_stop' => 'Stop dictation',
+        'speech_pause' => 'Pause dictation',
+        'speech_resume' => 'Resume dictation',
+        'speech_unavailable' => 'Could not play dictation.',
         'row_order' => 'Row order',
         'column_order' => 'Reading direction within a row',
         'bottom_up' => 'Bottom to top',
