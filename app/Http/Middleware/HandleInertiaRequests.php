@@ -61,6 +61,10 @@ class HandleInertiaRequests extends Middleware
             'user' => $user,
             'url' => is_null($locale) ? $request->getPathInfo() : str_replace("/$locale", "", $request->getPathInfo()),
             'locale' => $locale ?? '',
+            'bead_preview_label' => fn () => __('main.bead_preview'),
+            'bead_preview_offsets' => fn () => __('main.bead_preview_offsets'),
+            'bead_dictation' => fn () => __('main.bead_dictation'),
+            'editor_draft_archive_error' => fn () => __('main.editor_draft_archive_error'),
             'current_lang' => !empty($currentLang) ? array_values($currentLang)[0] : [],
             'nav_menu' => $navMenu,
             'routes' => [

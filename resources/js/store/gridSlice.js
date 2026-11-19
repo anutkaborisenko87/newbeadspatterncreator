@@ -7,21 +7,53 @@ const initialState = {
     cellSize: 10,
     penColor: "#0000ff",
     fillColor: "#0000ff",
-    drawnCells: {}, // теперь обычный объект вместо new Set() или Map()
-    undoStack: [],
+    drawnCells: {},
+    undoStack: [{}],
     redoStack: [],
     tool: "pen"
 };
+
+function resizeGrid(state, width, height) {
+    const heightChange = height - state.gridHeight;
+    const {margin} = state;
+    const cells = {};
+    for (const [cell, color] of Object.entries(state.drawnCells)) {
+        const [x, oldY] = cell.split(',').map(Number);
+        const y = oldY + heightChange;
+        if (x >= margin && x < margin + width && y >= margin && y < margin + height) {
+            cells[`${x},${y}`] = color;
+        }
+    }
+
+    state.gridWidth = width;
+    state.gridHeight = height;
+    state.drawnCells = cells;
+    state.undoStack.push({...cells});
+    state.redoStack = [];
+}
 
 const gridSlice = createSlice({
     name: "grid",
     initialState,
     reducers: {
         setGridWidth: (state, action) => {
-            state.gridWidth = action.payload * state.cellSize;
+            const width = Math.max(0, Math.trunc(action.payload)) * state.cellSize;
+            if (Number.isSafeInteger(width) && width !== state.gridWidth) resizeGrid(state, width, state.gridHeight);
         },
         setGridHeight: (state, action) => {
-            state.gridHeight = action.payload * state.cellSize;
+            const height = Math.max(0, Math.trunc(action.payload)) * state.cellSize;
+            if (Number.isSafeInteger(height) && height !== state.gridHeight) resizeGrid(state, state.gridWidth, height);
+        },
+        loadEditorDraft: (_state, action) => {
+            const drawing = action.payload;
+            const cells = {...drawing?.drawnCells};
+            return {
+                ...initialState,
+                gridWidth: drawing?.gridWidth ?? initialState.gridWidth,
+                gridHeight: drawing?.gridHeight ?? initialState.gridHeight,
+                drawnCells: cells,
+                undoStack: [{...cells}],
+            };
         },
         setPenColor: (state, action) => {
             state.penColor = action.payload;
@@ -69,6 +101,7 @@ const gridSlice = createSlice({
 export const {
     setGridWidth,
     setGridHeight,
+    loadEditorDraft,
     setPenColor,
     setDrawnCells,
     addCell,

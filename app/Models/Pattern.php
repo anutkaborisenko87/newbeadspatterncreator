@@ -14,6 +14,24 @@ class Pattern extends Model
     protected $casts = [
         'pattern_data' => 'array'
     ];
+
+    public function isEditorDraftFor(?int $userId): bool
+    {
+        return $userId !== null && (int) $this->user_id === $userId
+            && !$this->published && !$this->shared && isset($this->pattern_data['editorDraftVersion']);
+    }
+
+    public function editorSnapshot(): array
+    {
+        $data = $this->pattern_data;
+
+        return [
+            'version' => (int) ($data['editorEditVersion'] ?? $data['editorDraftVersion']),
+            'drawing' => array_intersect_key($data, array_flip(['gridWidth', 'gridHeight', 'drawnCells'])),
+            'previewVersion' => $data['editorPreviewVersion'] ?? null,
+        ];
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

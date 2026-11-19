@@ -43,6 +43,9 @@ final readonly class PatternGalleryDTO
         $itemLink = $authUser && $authUser->id === $pattern->user?->id
             ? 'editor/' . $encodedId
             : 'gallery/' . $encodedId;
+        $draftPreview = $pattern->isEditorDraftFor($authUser?->id)
+            ? route('editor-draft.preview', ['pattern' => $pattern], absolute: false)
+            : null;
 
         $liked = $authUser
             ? $pattern->likes->contains(
@@ -55,8 +58,8 @@ final readonly class PatternGalleryDTO
             title: $pattern->title,
             description: $pattern->description,
             photo: $pattern->photo,
-            preview: $pattern->preview_image,
-            link: $itemLink,
+            preview: $draftPreview ?? $pattern->preview_image,
+            link: $draftPreview ? route('editor-draft.edit', ['pattern' => $pattern], absolute: false) : $itemLink,
 
             author: [
                 'name' => $pattern->user?->login,

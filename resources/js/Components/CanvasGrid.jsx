@@ -1,11 +1,12 @@
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useState} from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useCanvasGrid } from "../hooks/useCanvasGrid";
-import { drawGrid } from "../utils/drawGrid";
+import { drawGrid, drawVerticalGrid, getHalfCellShift, getHorizontalPosition } from "../utils/drawGrid";
 import { addCell, commitDrawing, setDrawnCells } from "../store/gridSlice.js";
 import { floodFill } from "../utils/floodFill";
+import { copyCells, pasteCells } from "../utils/selectionClipboard.js";
 
-export const CanvasGrid = ({ offset = false }) => {
+export const CanvasGrid = ({ offsetDirection = null, clipboardRef }) => {
     const dispatch = useDispatch();
     const {
         gridWidth,
@@ -17,61 +18,51 @@ export const CanvasGrid = ({ offset = false }) => {
         fillColor,
         margin,
     } = useSelector((state) => state.grid);
-    const canvasRef = useCanvasGrid(gridWidth, gridHeight, cellSize, margin, offset);
+    const horizontal = offsetDirection === "horizontal";
+    const vertical = offsetDirection === "vertical";
+    const extraWidth = horizontal ? cellSize / 2 : 0;
+    const extraHeight = vertical && gridWidth > cellSize ? cellSize / 2 : 0;
+    const canvasRef = useCanvasGrid(gridWidth + extraWidth, gridHeight + extraHeight, margin);
     const [isDrawing, setIsDrawing] = useState(false);
     const [isSelecting, setIsSelecting] = useState(false);
     const [selectionStart, setSelectionStart] = useState(null);
     const [selectionEnd, setSelectionEnd] = useState(null);
-    const [clipboard, setClipboard] = useState(null);
-    const selectionRef = useRef({ start: null, end: null });
-    let cursorUrl = "";
+    let cursor;
     switch (tool) {
-        case "pen":
-            cursorUrl = "/images/icons/pencil-line.svg";
-            break;
         case "fill":
-            cursorUrl = "/images/icons/paint-fill.svg";
+            cursor = "url(/images/icons/paint-fill.svg) 10 15, auto";
             break;
         case "eraser":
-            cursorUrl = "/images/icons/eraser-line.svg";
+            cursor = "url(/images/icons/eraser-line.svg) 10 26, auto";
             break;
         case "selection":
-            cursorUrl = "/images/icons/layout-grid-2-line.svg";
+            cursor = "url(/images/icons/layout-grid-2-line.svg) 10 15, auto";
             break;
         default:
-            cursorUrl = "/images/icons/pencil-line.svg";
+            // The tip is at (5, 34.8) in the 40×40 viewBox, rendered at 30×30.
+            cursor = "url(/images/icons/pencil-line.svg) 4 26, auto";
     }
 
     const getCellCoordinates = (event) => {
         const canvas = canvasRef.current;
         if (!canvas) return null;
         const rect = canvas.getBoundingClientRect();
-        const localX = event.clientX - rect.left;
-        const localY = event.clientY - rect.top;
-        const gridLeft = margin;
-        const gridRight = gridWidth + margin/2;
-        const gridTop = margin - cellSize;
-        const gridBottom = gridHeight + margin/2;
-        if (localX < gridLeft || localX > gridRight || localY < gridTop || localY > gridBottom) {
-            return null;
-        }
-        const colIndex = Math.floor((localX - gridLeft) / cellSize);
-        const rowIndex = Math.floor((gridBottom - localY) / cellSize);
-        const cellX = gridLeft + colIndex * cellSize;
-        const cellY = gridBottom - rowIndex * cellSize;
+        if (!rect.width || !rect.height || !gridWidth || !gridHeight) return null;
+        const localX = (event.clientX - rect.left) * canvas.width / rect.width - margin;
+        const visibleCol = Math.floor(localX / cellSize);
+        const verticalShift = vertical ? getHalfCellShift(visibleCol, cellSize) : 0;
+        const localY = (event.clientY - rect.top) * canvas.height / rect.height - margin - verticalShift;
+        if (localY < 0 || localY >= gridHeight) return null;
+        const rowFromTop = Math.floor(localY / cellSize);
+        const rowFromBottom = gridHeight / cellSize - rowFromTop;
+        const rowStart = horizontal ? getHalfCellShift(rowFromBottom, cellSize) : 0;
+        if (localX < rowStart || localX >= rowStart + gridWidth) return null;
+        const shift = horizontal ? rowFromBottom * (cellSize / 2) : 0;
+        const col = Math.floor(((localX + shift) % gridWidth) / cellSize);
+        const x = margin + col * cellSize;
+        const y = margin + rowFromTop * cellSize;
 
-        let finalX = cellX;
-        if (canvas.id === "offset-canvas") {
-            const gridWidthRow = gridRight - gridLeft;
-            const baseX = colIndex * cellSize;
-            const shift =
-                rowIndex % 2 === 0
-                    ? rowIndex * (cellSize / 2)
-                    : rowIndex * (cellSize / 2) + cellSize / 2;
-            finalX = gridLeft + ((((baseX + shift) % gridWidthRow) + gridWidthRow) % gridWidthRow);
-        }
-
-        return { cellKey: `${finalX},${cellY}`, x: finalX, y: cellY, col: colIndex, row: rowIndex };
+        return { cellKey: `${x},${y}`, x, y, visibleColumn: Math.floor((localX - rowStart) / cellSize) };
     };
 
     useEffect(() => {
@@ -79,20 +70,25 @@ export const CanvasGrid = ({ offset = false }) => {
         if (!canvas) return;
         const ctx = canvas.getContext("2d");
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawGrid(ctx, gridWidth, gridHeight, cellSize, margin, offset);
         ctx.save();
         Object.entries(drawnCells).forEach(([cell, color]) => {
             let [x, y] = cell.split(",").map(Number);
-            if (offset) {
-                const colIndex = Math.floor((x - margin) / cellSize);
-                const rowIndex = Math.floor((gridHeight + margin - y) / cellSize);
-                const baseX = colIndex * cellSize;
-                const shift = rowIndex * (cellSize / 2);
-                x = margin + ((((baseX - shift) % gridWidth) + gridWidth) % gridWidth);
-            }
             ctx.fillStyle = color;
+            if (horizontal) {
+                const row = (gridHeight + margin - y) / cellSize;
+                x = margin + getHorizontalPosition(x - margin, row, gridWidth, cellSize);
+            }
+            if (vertical) {
+                y += getHalfCellShift((x - margin) / cellSize, cellSize);
+            }
             ctx.fillRect(x, y, cellSize, cellSize);
         });
+
+        if (vertical) {
+            drawVerticalGrid(ctx, gridWidth, gridHeight, cellSize, margin);
+        } else {
+            drawGrid(ctx, gridWidth, gridHeight, cellSize, margin, horizontal);
+        }
 
         if (selectionStart && selectionEnd && tool === "selection") {
             const selLeft = Math.min(selectionStart.x, selectionEnd.x);
@@ -104,13 +100,34 @@ export const CanvasGrid = ({ offset = false }) => {
 
             ctx.strokeStyle = "rgba(0, 0, 255, 0.8)";
             ctx.lineWidth = 2;
-            ctx.strokeRect(selLeft, selTop, selWidth, selHeight);
             ctx.fillStyle = "rgba(0, 0, 255, 0.2)";
-            ctx.fillRect(selLeft, selTop, selWidth, selHeight);
+            if (horizontal) {
+                for (let y = selTop; y < selBottom; y += cellSize) {
+                    const row = (gridHeight + margin - y) / cellSize;
+                    const rowLeft = margin + getHalfCellShift(row, cellSize);
+                    const x = margin + getHorizontalPosition(selLeft - margin, row, gridWidth, cellSize);
+                    const width = Math.min(selWidth, rowLeft + gridWidth - x);
+                    ctx.strokeRect(x, y, width, cellSize);
+                    ctx.fillRect(x, y, width, cellSize);
+                    if (width < selWidth) {
+                        ctx.strokeRect(rowLeft, y, selWidth - width, cellSize);
+                        ctx.fillRect(rowLeft, y, selWidth - width, cellSize);
+                    }
+                }
+            } else if (vertical) {
+                for (let x = selLeft; x < selRight; x += cellSize) {
+                    const y = selTop + getHalfCellShift((x - margin) / cellSize, cellSize);
+                    ctx.strokeRect(x, y, cellSize, selHeight);
+                    ctx.fillRect(x, y, cellSize, selHeight);
+                }
+            } else {
+                ctx.strokeRect(selLeft, selTop, selWidth, selHeight);
+                ctx.fillRect(selLeft, selTop, selWidth, selHeight);
+            }
         }
 
         ctx.restore();
-    }, [gridWidth, gridHeight, cellSize, margin, offset, drawnCells, tool, selectionStart, selectionEnd, canvasRef]);
+    }, [gridWidth, gridHeight, cellSize, margin, horizontal, vertical, drawnCells, tool, selectionStart, selectionEnd, canvasRef]);
 
     useEffect(() => {
         if (tool !== "selection") {
@@ -165,109 +182,52 @@ export const CanvasGrid = ({ offset = false }) => {
         dispatch(commitDrawing());
     };
 
-    const handleSelectionClick = (e) => {
-        const cell = getCellCoordinates(e);
+    const handleSelectionStart = (event) => {
+        if (event.button !== 0) return;
+        const cell = getCellCoordinates(event);
         if (!cell) return;
-        if (!selectionRef.current.start) {
-            selectionRef.current.start = cell;
-            selectionRef.current.end = cell;
+        event.currentTarget.focus({ preventScroll: true });
+        if (!isSelecting) {
             setSelectionStart(cell);
-            setSelectionEnd(cell);
-            setIsSelecting(true);
-        } else if (isSelecting) {
-            selectionRef.current.end = cell;
-            setSelectionEnd(cell);
+        }
+        setSelectionEnd(cell);
+        setIsSelecting(!isSelecting);
+    };
+
+    const handleSelectionMouseMove = (event) => {
+        if (!isSelecting) return;
+        const cell = getCellCoordinates(event);
+        if (cell) setSelectionEnd(cell);
+    };
+
+    const handleSelectionMouseUp = (event) => {
+        if (event.button !== 0 || !isSelecting) return;
+        const end = getCellCoordinates(event) ?? selectionEnd;
+        if (end.cellKey !== selectionStart.cellKey) {
+            setSelectionEnd(end);
             setIsSelecting(false);
-        } else {
-            selectionRef.current.start = cell;
-            selectionRef.current.end = cell;
-            setSelectionStart(cell);
-            setSelectionEnd(cell);
-            setIsSelecting(true);
         }
     };
 
-    const handleSelectionMouseMove = (e) => {
-        if (isSelecting && selectionStart) {
-            const cell = getCellCoordinates(e);
-            if (cell) {
-                setSelectionEnd(cell);
-            }
+    const handleSelectionKeyDown = (event) => {
+        if ((!event.ctrlKey && !event.metaKey) || !selectionStart || !selectionEnd) return;
+        if (event.code === "KeyC") {
+            event.preventDefault();
+            clipboardRef.current = copyCells(drawnCells, selectionStart, selectionEnd, cellSize);
+            setIsSelecting(false);
+        }
+        if (event.code === "KeyV" && clipboardRef.current) {
+            event.preventDefault();
+            const cells = pasteCells(
+                drawnCells, clipboardRef.current, selectionStart,
+                selectionEnd.visibleColumn < selectionStart.visibleColumn,
+                cellSize, margin, gridWidth, gridHeight
+            );
+            dispatch(setDrawnCells(cells));
+            dispatch(commitDrawing());
+            setIsSelecting(false);
         }
     };
-    const copySelection = () => {
-        if (!selectionRef.current.start || !selectionRef.current.end) return;
-        const { start, end } = selectionRef.current;
-        const minX = Math.min(start.x, end.x);
-        const minY = Math.min(start.y, end.y);
-        const maxX = Math.max(start.x, end.x);
-        const maxY = Math.max(start.y, end.y);
-        const minCol = Math.floor((minX - margin) / cellSize);
-        const maxCol = Math.floor((maxX - margin) / cellSize);
-        const minRow = Math.floor((gridHeight + margin - maxY) / cellSize);
-        const maxRow = Math.floor((gridHeight + margin - minY) / cellSize);
-
-        const copied = {};
-        Object.entries(drawnCells).forEach(([cellKey, color]) => {
-            const [x, y] = cellKey.split(",").map(Number);
-            const col = Math.floor((x - margin) / cellSize);
-            const row = Math.floor((gridHeight + margin - y) / cellSize);
-            if (col >= minCol && col <= maxCol && row >= minRow && row <= maxRow) {
-                const relCol = col - minCol;
-                const relRow = row - minRow;
-                copied[`${relCol},${relRow}`] = color;
-            }
-        });
-        console.log("copied", copied);
-        setClipboard(copied);
-    };
-
-    /**
-     * Pastes the contents of the clipboard onto the drawing grid at the specified target cell.
-     *
-     * The function adjusts the position of the clipboard contents relative to the target cell,
-     * and merges it into the current set of drawn cells. If there is no clipboard data or a target cell
-     * is not provided, the function returns without making any changes.
-     *
-     * @function
-     * @param {Object} targetCell - The cell on the grid onto which the clipboard contents should be pasted.
-     * @param {number} targetCell.col - The column index of the target cell.
-     * @param {number} targetCell.row - The row index of the target cell.
-     */
-    const pasteSelection = (targetCell) => {
-        if (!clipboard || !targetCell) return;
-        const newCells = { ...drawnCells };
-        Object.entries(clipboard).forEach(([relKey, color]) => {
-            const [relCol, relRow] = relKey.split(",").map(Number);
-            const newCol = targetCell.col + relCol;
-            const newRow = targetCell.row + relRow;
-            const cellX = margin + newCol * cellSize;
-            const cellY = (gridHeight + margin) - newRow * cellSize;
-            newCells[`${cellX},${cellY}`] = color;
-        });
-        dispatch(setDrawnCells(newCells));
-        dispatch(commitDrawing());
-    };
-
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (tool !== "selection") return;
-            if (e.ctrlKey && e.code === "KeyC") {
-                e.preventDefault();
-                copySelection();
-            }
-            if (e.ctrlKey && e.code === "KeyV") {
-                e.preventDefault();
-                if (selectionEnd) {
-                    pasteSelection(selectionEnd);
-                } else {
-                    console.log("No target cell for paste");
-                }
-            }
-        };
-        window.addEventListener("keydown", handleKeyDown);
-        return () => window.removeEventListener("keydown", handleKeyDown);
-    }, [tool, clipboard]);
 
     const handleContextMenu = (e) => {
         if (tool !== "selection") return;
@@ -276,14 +236,16 @@ export const CanvasGrid = ({ offset = false }) => {
 
     return (
         <canvas
-            id={offset ? "offset-canvas" : "normal-canvas"}
+            id={offsetDirection ? "offset-canvas" : "normal-canvas"}
             ref={canvasRef}
-            onMouseDown={tool === "selection" ? handleSelectionClick : startDrawing}
+            tabIndex={tool === "selection" ? 0 : undefined}
+            onKeyDown={tool === "selection" ? handleSelectionKeyDown : undefined}
+            onMouseDown={tool === "selection" ? handleSelectionStart : startDrawing}
             onMouseMove={tool === "selection" ? handleSelectionMouseMove : draw}
-            onMouseUp={tool === "selection" ? undefined : stopDrawing}
+            onMouseUp={tool === "selection" ? handleSelectionMouseUp : stopDrawing}
             onMouseLeave={tool === "selection" ? undefined : stopDrawing}
             onContextMenu={handleContextMenu}
-            style={{ cursor: `url(${cursorUrl}) 10 15, auto` }}
+            style={{ cursor }}
         />
     );
 };

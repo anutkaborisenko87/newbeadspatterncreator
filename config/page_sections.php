@@ -57,6 +57,7 @@ return [
             'colors_title' => 'string',
             'copyfield_title' => 'string',
             'new_draft_title' => 'string',
+            'bead_preview_label' => 'string',
             'save_draft_title' => 'string'
         ],
     ]
