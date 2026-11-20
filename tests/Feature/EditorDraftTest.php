@@ -16,6 +16,35 @@ class EditorDraftTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_editor_view_is_restored_and_controls_the_saved_preview_grid(): void
+    {
+        $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);
+        $owner = User::factory()->create(['login' => 'view-owner']);
+        $view = ['showBeadPreview' => true, 'offsetDirection' => 'vertical',
+            'showDictation' => false, 'bottomUp' => false, 'leftToRight' => false];
+        $drawing = ['gridWidth' => 40, 'gridHeight' => 30, 'drawnCells' => ['30,20' => '#0000ff'], 'view' => $view];
+        $snapshot = ['owner' => $owner->id, 'version' => 1, 'drawing' => $drawing];
+        $working = route('editor-draft.update');
+        $this->actingAs($owner)->putJson($working, $snapshot)->assertOk();
+        $this->assertSame($view, EditorDraft::findOrFail($owner->id)->drawing['view']);
+
+        $this->postJson($working, $snapshot)->assertOk()->assertJsonPath('drawing.view', $view);
+        $pattern = Pattern::sole();
+        $this->assertSame($view, $pattern->editorSnapshot()['drawing']['view']);
+        $url = route('editor-draft.preview', $pattern);
+        $image = imagecreatefromstring($this->get($url)->assertOk()->streamedContent());
+        $this->assertSame(35, imagesy($image));
+        $this->assertSame(0x0000ff, imagecolorat($image, 13, 8));
+
+        $drawing['view']['showBeadPreview'] = false;
+        $this->putJson(route('editor-draft.saved.update', $pattern), [
+            ...$snapshot, 'version' => 2, 'drawing' => $drawing,
+        ])->assertOk();
+        $image = imagecreatefromstring($this->get($url)->assertOk()->streamedContent());
+        $this->assertSame(30, imagesy($image));
+        $this->assertSame(0x0000ff, imagecolorat($image, 13, 3));
+    }
+
     public function test_only_the_owner_can_delete_an_unpublished_editor_draft(): void
     {
         $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);

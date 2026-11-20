@@ -15,10 +15,23 @@ class Pattern extends Model
         'pattern_data' => 'array'
     ];
 
+    public function galleryPreviewUrl(): ?string
+    {
+        return $this->published && $this->shared && isset($this->pattern_data['galleryPublicationId'])
+            ? route('gallery.pattern.preview', ['pattern' => $this], absolute: false)
+            : $this->preview_image;
+    }
+
     public function isEditorDraftFor(?int $userId): bool
     {
         return $userId !== null && (int) $this->user_id === $userId
             && !$this->published && !$this->shared && isset($this->pattern_data['editorDraftVersion']);
+    }
+
+    public function canRevise(?int $owner): bool
+    {
+        return $owner !== null && (int) $this->user_id === $owner && $this->published && $this->shared
+            && isset($this->pattern_data['gridWidth'], $this->pattern_data['gridHeight'], $this->pattern_data['drawnCells']);
     }
 
     public function editorSnapshot(): array
@@ -27,7 +40,7 @@ class Pattern extends Model
 
         return [
             'version' => (int) ($data['editorEditVersion'] ?? $data['editorDraftVersion']),
-            'drawing' => array_intersect_key($data, array_flip(['gridWidth', 'gridHeight', 'drawnCells'])),
+            'drawing' => array_intersect_key($data, array_flip(['gridWidth', 'gridHeight', 'drawnCells', 'view'])),
             'previewVersion' => $data['editorPreviewVersion'] ?? null,
         ];
     }

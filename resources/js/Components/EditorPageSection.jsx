@@ -3,7 +3,7 @@ import Icon from "@/Components/Icon.jsx";
 import {useSelector, useStore} from "react-redux";
 import {CanvasGrid} from "@/Components/CanvasGrid.jsx";
 import WidthHeightsControls from "@/Components/WidthHeightsControls.jsx";
-import {redo, setDrawnCells, setTool, undo} from "@/store/gridSlice.js";
+import {redo, setDrawnCells, setEditorView, setTool, undo} from "@/store/gridSlice.js";
 import {useDispatch} from "react-redux";
 import UsedColors from "@/Components/UsedColors.jsx";
 import ColorPicker from "@/Components/ColorPicker.jsx";
@@ -14,14 +14,10 @@ import {useLayoutEffect, useRef, useState} from "react";
 import {getDrawing, startEditorDraft} from '../utils/editorDraft.js';
 import {captureDraftPreview} from '../utils/captureDraftPreview.js';
 
-const EditorWorkspace = ({data, onNewDraft, onPublish, archiving, archiveError, canvasVersion = 0, workspaceRef}) => {
+const EditorWorkspace = ({data, onNewDraft, onPublish, onDiscard, archiving, archiveError, canvasVersion = 0, workspaceRef}) => {
     const dispatch = useDispatch();
     const {bead_preview_label, bead_preview_offsets, bead_dictation, galleryPublication} = usePage().props;
-    const [showBeadPreview, setShowBeadPreview] = useState(true);
-    const [offsetDirection, setOffsetDirection] = useState('horizontal');
-    const [showDictation, setShowDictation] = useState(true);
-    const [bottomUp, setBottomUp] = useState(true);
-    const [leftToRight, setLeftToRight] = useState(true);
+    const {showBeadPreview, offsetDirection, showDictation, bottomUp, leftToRight} = useSelector((state) => state.grid.view);
     const dictation = useBeadDictation(bead_dictation, showDictation, bottomUp, leftToRight);
     const clipboardRef = useRef(null);
     const {mode} = useSelector((state) => state.themeMode);
@@ -73,7 +69,7 @@ const EditorWorkspace = ({data, onNewDraft, onPublish, archiving, archiveError, 
                             aria-label={bead_preview_label}
                             aria-pressed={showBeadPreview}
                             title={bead_preview_label}
-                            onClick={() => setShowBeadPreview((visible) => !visible)}
+                            onClick={() => dispatch(setEditorView({showBeadPreview: !showBeadPreview}))}
                         >
                             <Icon
                                 name={showBeadPreview ? 'see_password' : 'hide_password'}
@@ -89,7 +85,7 @@ const EditorWorkspace = ({data, onNewDraft, onPublish, archiving, archiveError, 
                                 aria-label={`${bead_preview_offsets.label}: ${bead_preview_offsets.vertical}`}
                                 aria-pressed={offsetDirection === 'vertical'}
                                 title={`${bead_preview_offsets.label}: ${bead_preview_offsets[offsetDirection]}`}
-                                onClick={() => setOffsetDirection((direction) => direction === 'horizontal' ? 'vertical' : 'horizontal')}
+                                onClick={() => dispatch(setEditorView({offsetDirection: offsetDirection === 'horizontal' ? 'vertical' : 'horizontal'}))}
                             >
                                 <Icon
                                     name="staggered_grid"
@@ -104,6 +100,11 @@ const EditorWorkspace = ({data, onNewDraft, onPublish, archiving, archiveError, 
                 </div>
                 <div className="editor-header-aside">
                     <div className="flex justify-end items-center gap-[1em]">
+                        {onDiscard && <button type="button" disabled={archiving} onClick={onDiscard}
+                            className="border-0 bg-transparent cursor-pointer p-0"
+                            title={galleryPublication.labels.discard} aria-label={galleryPublication.labels.discard}>
+                            <Icon name="trash" color={color} size={25} aria-hidden="true" />
+                        </button>}
                         <button
                             type="button"
                             className="inline-flex cursor-pointer items-center border-0 bg-transparent p-0 disabled:cursor-default disabled:opacity-50"
@@ -126,11 +127,11 @@ const EditorWorkspace = ({data, onNewDraft, onPublish, archiving, archiveError, 
                     <BeadDictationControls
                         labels={bead_dictation}
                         open={showDictation}
-                        onToggle={() => setShowDictation((visible) => !visible)}
+                        onToggle={() => dispatch(setEditorView({showDictation: !showDictation}))}
                         bottomUp={bottomUp}
-                        setBottomUp={setBottomUp}
+                        setBottomUp={(value) => dispatch(setEditorView({bottomUp: value}))}
                         leftToRight={leftToRight}
-                        setLeftToRight={setLeftToRight}
+                        setLeftToRight={(value) => dispatch(setEditorView({leftToRight: value}))}
                         dictation={dictation}
                     />
                 </div>
@@ -192,6 +193,7 @@ function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, worki
     };
 
     const publicationSnapshot = async () => {
+        await sessionRef.current.backupWorkingDraft();
         const drawing = getDrawing(store.getState().grid);
         const version = Math.max((initialDraft.current?.version ?? 0) + 1, Date.now() * 1000 + 999);
         const preview = drawing.gridWidth && drawing.gridHeight
@@ -199,11 +201,18 @@ function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, worki
         return {owner, drawing, version, ...preview};
     };
 
+    const discard = galleryPublication.revision ? () => {
+        if (window.confirm(galleryPublication.labels.confirm_discard)) {
+            router.delete(galleryPublication.revision.discardUrl);
+        }
+    } : undefined;
+
     return ready ? (
         <>
-            <EditorWorkspace data={data} onNewDraft={archive} onPublish={() => setPublishing(true)} archiving={archiving}
+            <EditorWorkspace data={data} onNewDraft={archive} onPublish={() => setPublishing(true)} onDiscard={discard} archiving={archiving}
                              archiveError={archiveError} canvasVersion={canvasVersion} workspaceRef={workspaceRef} />
             {publishing && <GalleryPublicationDialog config={galleryPublication} getSnapshot={publicationSnapshot}
+                                                     onPublished={(workspace) => sessionRef.current.finishPublication(workspace)}
                                                      onClose={() => setPublishing(false)} />}
         </>
     ) : null;

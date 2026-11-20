@@ -17,6 +17,55 @@ class GalleryPublicationTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_published_revisions_are_private_until_replaced_copied_or_discarded(): void
+    {
+        $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);
+        $author = User::factory()->create(['login' => 'gallery-author']);
+        $other = User::factory()->create(['login' => 'other-author']);
+        $category = PatternCategory::create();
+        $originalDrawing = ['gridWidth' => 30, 'gridHeight' => 30, 'drawnCells' => ['20,20' => '#0000ff']];
+        $original = Pattern::create([
+            'user_id' => $author->id, 'title' => 'Original', 'published' => true, 'shared' => true,
+            'pattern_data' => $originalDrawing,
+        ]);
+        $original->category()->attach($category);
+        $open = route('editor-draft.revision', $original);
+        $this->actingAs($other)->post($open)->assertNotFound();
+        $this->actingAs($author)->post($open)->assertStatus(303);
+        $draft = Pattern::where('published', false)->sole();
+        $this->post($open)->assertRedirect(route('editor-draft.edit', $draft));
+        $changed = [...$originalDrawing, 'drawnCells' => ['20,20' => '#ff0000']];
+        $payload = [
+            'owner' => $author->id, 'version' => 9_000_000_000_000_000, 'drawing' => $changed,
+            'title' => 'Updated', 'category' => $category->id, 'publicationId' => (string) Str::uuid(),
+            'publicationMode' => 'replace',
+        ];
+        $this->putJson(route('editor-draft.saved.update', $draft), $payload)->assertOk();
+        $this->assertSame($changed, $draft->fresh()->editorSnapshot()['drawing']);
+        $this->assertSame($originalDrawing, $original->fresh()->pattern_data);
+        $publish = route('editor-draft.publish', $draft);
+        $this->postJson($publish, $payload)->assertOk()->assertJsonPath('workspace.drawing.drawnCells', []);
+        $this->postJson($publish, $payload)->assertOk();
+        $this->assertModelMissing($draft);
+        $this->assertSame('Updated', $original->fresh()->title);
+        $this->assertSame($changed['drawnCells'], $original->fresh()->pattern_data['drawnCells']);
+
+        $this->post($open)->assertStatus(303);
+        $draft = Pattern::where('published', false)->sole();
+        $this->postJson(route('editor-draft.publish', $draft), [
+            ...$payload, 'publicationId' => (string) Str::uuid(), 'publicationMode' => 'new', 'title' => 'Copy',
+        ])->assertOk();
+        $this->assertSame('Updated', $original->fresh()->title);
+        $this->assertDatabaseHas('patterns', ['id' => $draft->id, 'published' => true, 'title' => 'Copy']);
+
+        $this->post($open)->assertStatus(303);
+        $draft = Pattern::where('published', false)->sole();
+        $this->delete(route('editor-draft.destroy', ['pattern' => $draft, 'returnToEditor' => 1]))
+            ->assertRedirect(route('page', ['slug' => 'editor']));
+        $this->assertModelMissing($draft);
+        $this->assertModelExists($original);
+    }
+
     public function test_author_can_publish_to_an_existing_category_and_share_the_preview(): void
     {
         $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);
@@ -34,7 +83,8 @@ class GalleryPublicationTest extends TestCase
         ];
 
         $this->postJson($url, $payload)->assertUnauthorized();
-        $this->actingAs($author)->postJson($url, $payload)->assertOk()->assertJsonStructure(['galleryUrl']);
+        $this->actingAs($author)->postJson($url, $payload)->assertOk()->assertJsonPath('workspace.drawing.drawnCells', [])
+            ->assertJsonPath('editorUrl', route('page', ['slug' => 'editor'], absolute: false));
         $this->postJson($url, $payload)->assertOk();
         $pattern = Pattern::sole();
         $this->assertTrue((bool) $pattern->published);

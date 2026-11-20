@@ -100,7 +100,7 @@ class LayoutSeeder extends Seeder
                 'link' => '/password/reset',
                 'translate' => [
                     $enId => ['title' => 'Forgot your password?'],
-                    $uaId => ['title' => 'Забуди паполь?'],
+                    $uaId => ['title' => 'Забули пароль?'],
                 ]
             ],
             [

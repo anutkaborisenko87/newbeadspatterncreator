@@ -297,24 +297,54 @@ ul {
     background: rgba(54, 99, 196, 0.6);
 }
 
-.profile-draft-list {
+.pagination-controls {
     display: flex;
-    gap: 1.125rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 100%;
+    margin: 1rem 0;
+}
+
+.profile-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+    gap: 1rem;
     width: 100%;
-    padding: 0.125rem 0.125rem 0.5rem;
-    overflow-x: auto;
+}
+
+.profile-gallery-card {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 17.125rem;
+    padding: 1rem;
+    border-radius: 0.875rem;
+    overflow-wrap: anywhere;
+}
+
+.profile-pattern-preview {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    height: 11.25rem;
+    margin-bottom: 1rem;
+}
+
+.profile-pattern-preview img {
+    flex: 1 1 0;
+    min-width: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
 }
 
 .profile-draft-card {
-    box-sizing: border-box;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 2.25rem;
     grid-template-rows: 11.25rem auto;
     gap: 1rem 0.75rem;
-    flex: 0 0 min(17.125rem, 100%);
-    min-height: 17.125rem;
-    padding: 1.5rem;
-    border-radius: 0.875rem;
 }
 
 .profile-draft-preview {
@@ -391,6 +421,24 @@ ul {
 
 .about-main-block > img {
     @apply max-w-[25%]
+}
+
+.about-rated-previews {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+    gap: 1rem;
+    width: 93%;
+    margin: 0 auto 2rem;
+}
+
+.about-rated-previews img {
+    display: block;
+    justify-self: center;
+    width: min(100%, 12rem);
+    height: auto;
+    aspect-ratio: 1;
+    object-fit: contain;
+    background: #fff;
 }
 
 .editor-main-div {
@@ -484,6 +532,49 @@ ul {
 .shared-modal-body {
     overflow-y: auto;
     padding: 1.5rem;
+}
+
+.password-reset-form,
+.password-reset-form label {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.password-reset-form input {
+    padding: 0.75rem;
+    border: 1px solid #aabde5;
+    border-radius: 0.5rem;
+    background: #e5edfc;
+    font: inherit;
+}
+
+.password-reset-form button {
+    padding: 0.75rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: #031945;
+    color: #fff;
+    cursor: pointer;
+}
+
+.password-reset-form button:disabled,
+.password-reset-back:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.password-reset-form [role="alert"] {
+    color: #84202a;
+}
+
+.password-reset-back {
+    margin-top: 0.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
 }
 
 .gallery-publication-form,

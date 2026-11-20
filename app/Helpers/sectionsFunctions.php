@@ -28,7 +28,7 @@ if (!function_exists('getPatternCategoryList')) {
 if (!function_exists('getMainRatedPicturesList')) {
     function getMainRatedPicturesList(): array
     {
-        return [];
+        return app(PatternServiceInterface::class)->getTopRatedPreviews();
     }
 }
 

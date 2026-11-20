@@ -34,13 +34,13 @@ async function saveDraft(url, owner, snapshot, keepalive, method = 'PUT') {
 }
 
 export function getDrawing(grid) {
-    const {gridWidth, gridHeight, margin, cellSize} = grid;
+    const {gridWidth, gridHeight, margin, cellSize, view} = grid;
     const drawnCells = Object.fromEntries(Object.entries(grid.drawnCells).filter(([key]) => {
         const [x, y] = key.split(',').map(Number);
         return x >= margin && x < margin + gridWidth && y >= margin && y < margin + gridHeight
             && (x - margin) % cellSize === 0 && (y - margin) % cellSize === 0;
     }));
-    return {gridWidth, gridHeight, drawnCells};
+    return {gridWidth, gridHeight, drawnCells, view};
 }
 
 function afterVersion(version) {
@@ -107,7 +107,8 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
     const unsubscribe = store.subscribe(() => {
         if (archiving) return;
         const grid = store.getState().grid;
-        if (grid.drawnCells === previous.drawnCells && grid.gridWidth === previous.gridWidth && grid.gridHeight === previous.gridHeight) return;
+        if (grid.drawnCells === previous.drawnCells && grid.gridWidth === previous.gridWidth
+            && grid.gridHeight === previous.gridHeight && grid.view === previous.view) return;
         previous = grid;
         restartOperation = undefined;
         version = latestVersion = afterVersion(latestVersion);
@@ -142,11 +143,7 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
             if (capturePreview && !preview) throw new Error('Draft preview capture failed');
             const payload = {...snapshot, ...preview};
             if (savedDraftId != null) {
-                const backup = readCachedDraft(workingKey);
-                if (backup) {
-                    const backupResponse = await saveDraft(workingUrl, owner, backup, false);
-                    if (!backupResponse.ok) throw new Error('Working draft backup failed');
-                }
+                await backupWorkingDraft();
                 restartOperation ??= afterVersion(latestVersion);
                 payload.operation = restartOperation;
             }
@@ -182,5 +179,20 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
         store.dispatch(loadEditorDraft());
     }
 
-    return {archive, stop};
+    async function backupWorkingDraft() {
+        const backup = savedDraftId != null ? readCachedDraft(workingKey) : null;
+        if (backup && !(await saveDraft(workingUrl, owner, backup, false)).ok) {
+            throw new Error('Working draft backup failed');
+        }
+    }
+
+    function finishPublication(workspace) {
+        archiving = true;
+        pending = null;
+        window.clearTimeout(timer);
+        if (workspace) cacheDraft(workingKey, workspace);
+        store.dispatch(loadEditorDraft(workspace?.drawing));
+    }
+
+    return {archive, stop, backupWorkingDraft, finishPublication};
 }

@@ -15,7 +15,7 @@ const LoginForm = () => {
     const [errors, setErrors] = useState({});
     const handleLogin = (e) => {
         e.preventDefault();
-        router.post('/login', {
+        router.post(props.loginModal.url, {
                 _token: props.csrf_token,
                 ...formInputs
             }, {
@@ -36,6 +36,7 @@ const LoginForm = () => {
                 <h2 className={'text-[#ffffff]'}>{props.login_popup_title.title ?? ''}</h2>
             </div>
             <div className={'bg-[#AEC2ED] p-[1em] flex flex-col gap-[0.5em]'}>
+                {props.loginModal.status && <p role="status">{props.loginModal.status}</p>}
                 <form className={'p-[1em] flex flex-col gap-[0.5em]'} onSubmit={handleLogin}>
                     <div className='flex flex-col p-[1em] justify-center items-start relative'>
                         {emailLabelVisible && <label htmlFor="email"
@@ -117,12 +118,12 @@ const LoginForm = () => {
                     </button>
                 </form>
                 <div className="flex justify-between items-baseline w-[95%] mx-auto my-0">
-                    <a
+                    <button type="button"
                         className={'bg-transparent border-0 text-[#0E0448] cursor-pointer underline underline-offset-4'}
-                        href={'forgot-password'}
+                        onClick={() => dispatch(openCloseModal({open: true, mode: 'forgot-password'}))}
                     >
                         {props.login_popup_forgot_password_link.title ?? ''}
-                    </a>
+                    </button>
                 </div>
                 <div className="flex justify-between items-baseline w-[95%] mx-auto my-0 gap-[0.5em]">
                     <hr className="flex-1 border-t border-[#0E0448]"/>

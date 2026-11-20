@@ -1,6 +1,18 @@
 <?php
 
 return [
+    'modal' => [
+        'reset_heading' => 'Reset your password',
+        'password' => 'New password',
+        'confirmation' => 'Confirm new password',
+        'reset_button' => 'Save new password',
+        'heading' => 'Forgot your password?',
+        'description' => 'Enter your email address and we’ll send you a password reset link.',
+        'email' => 'Email address',
+        'send' => 'Send reset link',
+        'back' => 'Back to sign in',
+        'close' => 'Close',
+    ],
 
     /*
     |--------------------------------------------------------------------------

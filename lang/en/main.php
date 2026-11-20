@@ -1,6 +1,12 @@
 <?php
 return [
     'gallery_publication' => [
+        'edit' => 'Edit published pattern',
+        'revision_destination' => 'Publish revision as',
+        'replace' => 'Update the published pattern',
+        'publish_new' => 'Publish as a new pattern',
+        'discard' => 'Discard revision',
+        'confirm_discard' => 'Discard the draft changes? The published pattern will stay in the gallery.',
         'translation_hint' => 'Enter the name in the interface language. Translations for other languages are added automatically.',
         'translation_error' => 'Could not translate the category name. Try again.',
         'category_name_too_long' => 'Use a shorter category name so it can be translated.',

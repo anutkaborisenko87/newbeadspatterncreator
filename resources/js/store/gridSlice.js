@@ -10,6 +10,13 @@ const initialState = {
     drawnCells: {},
     undoStack: [{}],
     redoStack: [],
+    view: {
+        showBeadPreview: true,
+        offsetDirection: 'horizontal',
+        showDictation: true,
+        bottomUp: true,
+        leftToRight: true,
+    },
     tool: "pen"
 };
 
@@ -52,8 +59,12 @@ const gridSlice = createSlice({
                 gridWidth: drawing?.gridWidth ?? initialState.gridWidth,
                 gridHeight: drawing?.gridHeight ?? initialState.gridHeight,
                 drawnCells: cells,
+                view: {...initialState.view, ...drawing?.view},
                 undoStack: [{...cells}],
             };
+        },
+        setEditorView: (state, action) => {
+            Object.assign(state.view, action.payload);
         },
         setPenColor: (state, action) => {
             state.penColor = action.payload;
@@ -102,6 +113,7 @@ export const {
     setGridWidth,
     setGridHeight,
     loadEditorDraft,
+    setEditorView,
     setPenColor,
     setDrawnCells,
     addCell,

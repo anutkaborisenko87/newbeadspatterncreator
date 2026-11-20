@@ -52,6 +52,16 @@ class PagesController extends Controller
                     ->sortBy('title')->values(),
             ];
             if ($savedDraft) {
+                $original = isset($savedDraft->pattern_data['revisionOf'])
+                    ? Pattern::find($savedDraft->pattern_data['revisionOf']) : null;
+                if ($original?->canRevise(auth()->id())) {
+                    $props['galleryPublication']['revision'] = [
+                        'title' => $original->title,
+                        'description' => $original->description,
+                        'category' => $original->category()->first()?->getKey(),
+                        'discardUrl' => route('editor-draft.destroy', ['pattern' => $savedDraft, 'returnToEditor' => 1], absolute: false),
+                    ];
+                }
                 $props['editorDraft'] = $savedDraft->editorSnapshot();
                 $props['editorDraftUrl'] = route('editor-draft.saved.update', ['pattern' => $savedDraft], absolute: false);
                 $props['editorSavedDraftId'] = $savedDraft->getKey();

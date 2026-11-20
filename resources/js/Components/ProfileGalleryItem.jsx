@@ -30,7 +30,7 @@ function DraftCard({data, labels, color}) {
     };
 
     return (
-        <article className="galery-item-block-background profile-draft-card" style={{color}}>
+        <article className="galery-item-block-background profile-gallery-card profile-draft-card" style={{color}}>
             <div className="profile-draft-preview">
                 {data.preview && failedPreview !== data.preview
                     ? <img src={data.preview} alt={data.title || labels.preview} onError={() => setFailedPreview(data.preview)} />
@@ -52,7 +52,8 @@ function DraftCard({data, labels, color}) {
     );
 }
 
-const ProfileGalleryItem = ({data, section_slug, per_page, labels}) => {
+const ProfileGalleryItem = ({data, section_slug, labels}) => {
+    const {publicationEditLabel} = usePage().props;
     const {mode} = useSelector((state) => state.themeMode);
     let color = '';
     switch (mode) {
@@ -75,7 +76,7 @@ const ProfileGalleryItem = ({data, section_slug, per_page, labels}) => {
             case 'my_patterns':
                 return (
                     <div
-                        className={`flex justify-start items-start gap-[2em]`}>
+                        className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <h5 className={`text-[1.5em]`} style={{color: color}}>{data.title}</h5>
 
                         <div className={'flex items-center gap-[0.5em]'}>
@@ -96,7 +97,7 @@ const ProfileGalleryItem = ({data, section_slug, per_page, labels}) => {
                         className={`flex flex-col justify-start items-start gap-[2em]`}>
                         <h4 className={`text-[2em]`} style={{color: color}}>{data.title}</h4>
                         <div
-                            className={'flex items-center justify-between gap-[1em]'}>
+                            className="flex flex-wrap items-center gap-x-4 gap-y-2">
                             <div className={'flex items-center gap-[0.5em]'}>
                                 <Icon name={'person_location'} size={24} color={color}/>
                                 {data.author.url !== null ?
@@ -123,26 +124,26 @@ const ProfileGalleryItem = ({data, section_slug, per_page, labels}) => {
                 );
         }
     }
-    const draftLink = section_slug === 'drafts' && data.link;
-    const Card = draftLink ? Link : 'div';
-
     return (
-        <Card
-            {...(draftLink ? {href: draftLink} : {})}
-            className={`galery-item-block-background rounded-[15px] p-[1em] w-1/${per_page}`}>
-            {draftLink || data.link === null ?
-                <div
-                    className={`flex justify-center items-start w-[90%] my-[1em]`}>
-                    <img src={data.preview} alt={data.title} className={`w-[90%] h-[10em] ${draftLink ? 'object-contain bg-white' : ''}`}/>
+        <article className="galery-item-block-background profile-gallery-card profile-pattern-card">
+            {section_slug === 'my_patterns' && data.editPublishedUrl ?
+                <div className="profile-pattern-preview">
+                    <img src={data.preview} alt={data.title} />
+                    <Link href={data.editPublishedUrl} method="post" as="button" title={publicationEditLabel}
+                          aria-label={publicationEditLabel} className="border-0 bg-transparent cursor-pointer p-0">
+                        <Icon name="edit" color={color} size={30} aria-hidden="true" />
+                    </Link>
+                </div> : data.link === null ?
+                <div className="profile-pattern-preview">
+                    <img src={data.preview} alt={data.title} />
                 </div> :
-                <Link href={data.link}
-                    className={`flex justify-center items-start w-[90%] my-[1em]`}>
-                    <img src={data.preview} alt={data.title} className={'w-[90%] h-[10em]'}/>
+                <Link href={data.link} className="profile-pattern-preview">
+                    <img src={data.preview} alt={data.title} />
                 </Link>
             }
             {renderFooter()}
 
-        </Card>
+        </article>
     );
 };
 

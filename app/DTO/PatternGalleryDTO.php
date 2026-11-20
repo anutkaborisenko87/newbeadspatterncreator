@@ -23,6 +23,7 @@ final readonly class PatternGalleryDTO
         public ?DateTime $created_at,
         public ?DateTime $updated_at,
         public ?string $deleteUrl = null,
+        public ?string $editPublishedUrl = null,
 
     ) {
     }
@@ -59,9 +60,7 @@ final readonly class PatternGalleryDTO
             title: $pattern->title,
             description: $pattern->description,
             photo: $pattern->photo,
-            preview: $draftPreview ?? ($pattern->published && $pattern->shared && isset($pattern->pattern_data['galleryPublicationId'])
-                ? route('gallery.pattern.preview', ['pattern' => $pattern], absolute: false)
-                : $pattern->preview_image),
+            preview: $draftPreview ?? $pattern->galleryPreviewUrl(),
             link: $draftPreview ? route('editor-draft.edit', ['pattern' => $pattern], absolute: false) : $itemLink,
 
             author: [
@@ -84,6 +83,8 @@ final readonly class PatternGalleryDTO
             created_at: $pattern->created_at,
             updated_at: $pattern->updated_at,
             deleteUrl: $draftPreview ? route('editor-draft.destroy', ['pattern' => $pattern], absolute: false) : null,
+            editPublishedUrl: $pattern->canRevise($authUser?->id)
+                ? route('editor-draft.revision', ['pattern' => $pattern], absolute: false) : null,
         );
     }
 
@@ -114,6 +115,7 @@ final readonly class PatternGalleryDTO
             'jpgLink' => $this->jpgLink,
             'created_at' => $this->created_at . '/' . $this->updated_at,
             'deleteUrl' => $this->deleteUrl,
+            'editPublishedUrl' => $this->editPublishedUrl,
             'createdAt' => $this->created_at?->format(DATE_ATOM),
             'updatedAt' => $this->updated_at?->format(DATE_ATOM),
         ];

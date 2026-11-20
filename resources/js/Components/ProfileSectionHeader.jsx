@@ -5,13 +5,13 @@ import {usePage} from "@inertiajs/react";
 import {updateQuery} from "@/hooks/updateQuery.js";
 
 const handleSortByChange = (value, slug) => {
-    updateQuery(`${slug}_sort_by`, value);
+    updateQuery(`${slug}_sort_by`, value, slug === 'liked' ? 'likes_page' : `${slug}_page`);
 }
 const ProfileSectionHeader = ({data}) => {
     const props = usePage().props;
     const {width} = useWindowSize();
     return (
-        <div className={`mr-auto flex justify-start items-center`}>
+        <div className="mr-auto flex flex-wrap justify-start items-center">
             <h2 className={'profile-main-section'}>{data.section_title}</h2>
             {
                 data.empty_data ? <SearchInput

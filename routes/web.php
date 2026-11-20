@@ -40,6 +40,8 @@ Route::post('/editor/drafts/{pattern}', [EditorDraftController::class, 'startFro
     ->middleware('auth')->whereNumber('pattern');
 Route::post('/editor/publish/{pattern?}', [EditorDraftController::class, 'publish'])
     ->middleware('auth')->whereNumber('pattern')->name('editor-draft.publish');
+Route::post('/editor/revisions/{pattern}', [EditorDraftController::class, 'startRevision'])
+    ->middleware('auth')->whereNumber('pattern')->name('editor-draft.revision');
 Route::get('/gallery/patterns/{pattern}/preview', [EditorDraftController::class, 'publishedPreview'])
     ->whereNumber('pattern')->name('gallery.pattern.preview');
 

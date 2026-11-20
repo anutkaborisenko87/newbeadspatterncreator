@@ -1,5 +1,6 @@
 export async function captureDraftPreview(workspace) {
-    const source = workspace?.querySelector('canvas#normal-canvas');
+    const offset = workspace?.querySelector('canvas#offset-canvas');
+    const source = offset ?? workspace?.querySelector('canvas#normal-canvas');
     if (!source?.isConnected || !source.width || !source.height) return null;
 
     const scale = Math.min(1, 1200 / source.width, 900 / source.height);
@@ -16,7 +17,7 @@ export async function captureDraftPreview(workspace) {
         const image = canvas.toDataURL('image/jpeg', quality);
         if (!image.startsWith(prefix)) return null;
         const preview = image.slice(prefix.length);
-        if (preview.length <= 600_000) return {preview, previewFormat: 'flat-grid'};
+        if (preview.length <= 600_000) return {preview, previewFormat: offset ? 'offset-grid' : 'flat-grid'};
     }
 
     return null;

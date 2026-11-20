@@ -23,7 +23,37 @@ class EditorDraftController extends Controller
         abort_unless(Pattern::whereKey($pattern->getKey())->where('user_id', $request->user()->getKey())
             ->where('published', false)->where('shared', false)->delete(), 404);
 
+        if ($request->boolean('returnToEditor') && isset($pattern->pattern_data['revisionOf'])) {
+            return redirect()->route('page', ['slug' => 'editor'], 303);
+        }
+
         return back(303);
+    }
+
+    public function startRevision(Request $request, Pattern $pattern): \Illuminate\Http\RedirectResponse
+    {
+        $owner = $request->user()->getKey();
+        abort_unless($pattern->canRevise($owner), 404);
+        $draft = DB::transaction(function () use ($owner, $pattern) {
+            User::query()->lockForUpdate()->findOrFail($owner);
+            $original = Pattern::query()->lockForUpdate()->findOrFail($pattern->getKey());
+            abort_unless($original->canRevise($owner), 404);
+
+            return Pattern::where('user_id', $owner)->where('published', false)->where('shared', false)
+                ->where('pattern_data->revisionOf', (string) $original->getKey())->first()
+                ?? Pattern::create([
+                    'user_id' => $owner,
+                    'title' => $original->title,
+                    'description' => $original->description,
+                    'pattern_data' => [
+                        ...array_intersect_key($original->pattern_data, array_flip(['gridWidth', 'gridHeight', 'drawnCells', 'view'])),
+                        'revisionOf' => (string) $original->getKey(),
+                        'editorDraftVersion' => (string) max(1, (int) $original->updated_at?->getTimestampMs() * 1000),
+                    ],
+                ]);
+        });
+
+        return redirect()->route('editor-draft.edit', ['pattern' => $draft], 303);
     }
 
     public function update(Request $request): JsonResponse
@@ -140,20 +170,24 @@ class EditorDraftController extends Controller
         $drawing = $pattern->pattern_data;
         $previewVersion = $drawing['editorPreviewVersion'] ?? null;
         $drawingVersion = $drawing['editorEditVersion'] ?? $drawing['editorDraftVersion'] ?? $previewVersion;
-        if (isset($drawing['editorPreview']) && ($drawing['editorPreviewFormat'] ?? null) === 'flat-grid'
+        $offset = !empty($drawing['view']['showBeadPreview']) ? ($drawing['view']['offsetDirection'] ?? 'horizontal') : null;
+        $format = $offset ? 'offset-grid' : 'flat-grid';
+        if (isset($drawing['editorPreview']) && ($drawing['editorPreviewFormat'] ?? null) === $format
             && (int) $previewVersion === (int) $drawingVersion) {
             return response()->stream(static function () use ($drawing) {
                 echo base64_decode($drawing['editorPreview']);
             }, 200, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
         }
 
-        return response()->stream(function () use ($drawing) {
+        return response()->stream(function () use ($drawing, $offset) {
             $width = max(1, $drawing['gridWidth']);
             $height = max(1, $drawing['gridHeight']);
-            $scale = min(320 / $width, 240 / $height, 1);
-            $image = imagecreatetruecolor(max(1, (int) ceil($width * $scale)), max(1, (int) ceil($height * $scale)));
+            $imageWidth = $width + ($offset === 'horizontal' ? 5 : 0);
+            $imageHeight = $height + ($offset === 'vertical' && $width > 10 ? 5 : 0);
+            $scale = min(320 / $imageWidth, 240 / $imageHeight, 1);
+            $image = imagecreatetruecolor((int) ceil($imageWidth * $scale), (int) ceil($imageHeight * $scale));
             imagefill($image, 0, 0, 0xffffff);
-            if ($scale * 10 >= 1) {
+            if (!$offset && $scale * 10 >= 1) {
                 for ($x = 0; $x <= $width; $x += 10) {
                     $column = min(imagesx($image) - 1, (int) round($x * $scale));
                     imageline($image, $column, 0, $column, imagesy($image) - 1, $x % 50 === 0 ? 0xcccccc : 0xeeeeee);
@@ -164,20 +198,45 @@ class EditorDraftController extends Controller
                 }
             }
             foreach ($drawing['drawnCells'] as $key => $color) {
-                [$x, $y] = explode(',', $key);
+                [$x, $y] = array_map(fn ($coordinate) => (int) $coordinate - 20, explode(',', $key));
+                [$x, $y] = $this->previewCellPosition($x, $y, $width, $height, $offset);
                 imagefilledrectangle($image,
-                    (int) floor(($x - 20) * $scale), (int) floor(($y - 20) * $scale),
-                    (int) ceil(($x - 10) * $scale) - 1, (int) ceil(($y - 10) * $scale) - 1,
+                    (int) floor($x * $scale), (int) floor($y * $scale),
+                    (int) ceil(($x + 10) * $scale) - 1, (int) ceil(($y + 10) * $scale) - 1,
                     hexdec(substr($color, 1)));
+            }
+            if ($offset && $scale * 10 >= 2) {
+                $line = imagecolorallocatealpha($image, 180, 180, 180, 70);
+                for ($y = 0; $y < $drawing['gridHeight']; $y += 10) {
+                    for ($x = 0; $x < $drawing['gridWidth']; $x += 10) {
+                        [$left, $top] = $this->previewCellPosition($x, $y, $width, $height, $offset);
+                        imagerectangle($image, (int) round($left * $scale), (int) round($top * $scale),
+                            (int) round(($left + 10) * $scale), (int) round(($top + 10) * $scale), $line);
+                    }
+                }
             }
             imagepng($image);
         }, 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'private, no-store']);
     }
 
-    public function publish(Request $request, CategoryNameTranslator $translator, ?Pattern $pattern = null): JsonResponse
+    private function previewCellPosition(int $x, int $y, int $width, int $height, ?string $offset): array
+    {
+        if ($offset === 'horizontal') {
+            $shift = intdiv($height - $y, 10) * 5;
+            $x = (($x - $shift) % $width + $width) % $width;
+        } elseif ($offset === 'vertical') {
+            $y += (intdiv($x, 10) % 2) * 5;
+        }
+
+        return [$x, $y];
+    }
+
+    public function publish(Request $request, CategoryNameTranslator $translator, ?string $pattern = null): JsonResponse
     {
         $userId = $request->user()->getKey();
-        abort_if($pattern && (int) $pattern->user_id !== (int) $userId, 404);
+        $draftId = $pattern;
+        $source = $draftId !== null ? Pattern::find($draftId) : null;
+        abort_if($source && (int) $source->user_id !== $userId, 404);
         $snapshot = $this->validateSnapshot($request);
         if (!$snapshot['drawing']['drawnCells']) {
             throw ValidationException::withMessages(['drawing' => __('main.gallery_publication.empty')]);
@@ -189,6 +248,7 @@ class EditorDraftController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
             'category' => $createCategory ? ['required', Rule::in(['new'])] : ['required', 'integer', Rule::exists('pattern_categories', 'id')],
+            'publicationMode' => ['sometimes', Rule::in(['new', 'replace'])],
         ];
         if ($createCategory) {
             $rules['categoryName'] = ['bail', 'required', 'string', 'max:255', function ($attribute, $value, $fail) {
@@ -199,30 +259,42 @@ class EditorDraftController extends Controller
         }
         $fields = $request->validate($rules);
 
-        $alreadyPublished = fn () => Pattern::where('user_id', $userId)
+        $alreadyPublished = fn () => Pattern::where('user_id', $userId)->where('published', true)
             ->where('pattern_data->galleryPublicationId', $fields['publicationId'])
-            ->when($pattern, fn ($query) => $query->whereKey($pattern->getKey()))
             ->exists();
-        $result = ['galleryUrl' => route('page', ['slug' => 'gallery'], absolute: false)];
+        $result = ['editorUrl' => route('page', ['slug' => 'editor'], absolute: false)];
         if ($alreadyPublished()) {
-            return response()->json($result);
+            return response()->json([...$result, 'workspace' => EditorDraft::find($userId)?->snapshot()]);
         }
-        abort_if($pattern && !$pattern->isEditorDraftFor($userId), 404);
+        if ($draftId !== null) {
+            abort_unless($source?->isEditorDraftFor($userId), 404);
+        }
 
         $translations = $createCategory
             ? $translator->translate($fields['categoryName'], app()->getLocale(), Language::getAllEnableLanguages())
             : [];
 
-        DB::transaction(function () use ($userId, $pattern, $snapshot, $preview, $fields, $createCategory, $translations, $alreadyPublished) {
+        $workspace = DB::transaction(function () use ($userId, $draftId, $snapshot, $preview, $fields, $createCategory, $translations, $alreadyPublished) {
             User::query()->lockForUpdate()->findOrFail($userId);
+            $working = EditorDraft::firstOrNew(['user_id' => $userId]);
             if ($alreadyPublished()) {
-                return;
+                return $working->snapshot();
             }
 
-            $publication = $pattern ? Pattern::query()->lockForUpdate()->findOrFail($pattern->getKey()) : new Pattern;
-            if ($pattern) {
-                abort_unless($publication->isEditorDraftFor($userId), 404);
-                abort_if($publication->editorSnapshot()['version'] > $snapshot['version'], 409);
+            $draft = $draftId !== null ? Pattern::query()->lockForUpdate()->findOrFail($draftId) : null;
+            if ($draft) {
+                abort_unless($draft->isEditorDraftFor($userId), 404);
+                abort_if($draft->editorSnapshot()['version'] > $snapshot['version'], 409);
+            } else {
+                abort_if($working->exists && $working->version > $snapshot['version'], 409);
+            }
+            $replace = ($fields['publicationMode'] ?? 'new') === 'replace';
+            $publication = $draft ?? new Pattern;
+            if ($replace) {
+                $original = $draft?->pattern_data['revisionOf'] ?? null;
+                abort_unless($original, 422);
+                $publication = Pattern::query()->lockForUpdate()->findOrFail($original);
+                abort_unless($publication->canRevise($userId), 404);
             }
             if ($createCategory) {
                 $category = PatternCategory::create();
@@ -247,9 +319,21 @@ class EditorDraftController extends Controller
                 ],
             ])->save();
             $publication->category()->sync([$categoryId]);
+            if ($replace) {
+                $draft->delete();
+            }
+            if ($draft && !empty($working->drawing['drawnCells'])) {
+                $this->createProfileDraft($userId, $working->version, $working->drawing);
+            }
+            $working->fill([
+                'version' => max($working->version ?? 0, $snapshot['version']) + 1,
+                'drawing' => [...$snapshot['drawing'], 'drawnCells' => []],
+            ])->save();
+
+            return $working->snapshot();
         });
 
-        return response()->json($result);
+        return response()->json([...$result, 'workspace' => $workspace]);
     }
 
     public function updateSaved(Request $request, Pattern $pattern): JsonResponse
@@ -284,7 +368,7 @@ class EditorDraftController extends Controller
     {
         $fields = $request->validate([
             'preview' => ['nullable', 'string', 'max:600000'],
-            'previewFormat' => ['sometimes', 'in:flat-grid'],
+            'previewFormat' => ['sometimes', 'in:flat-grid,offset-grid'],
         ]);
         $preview = $fields['preview'] ?? null;
         if ($preview === null) {
@@ -311,10 +395,16 @@ class EditorDraftController extends Controller
 
         $validated = $request->validate([
             'version' => ['required', 'integer', 'min:1', 'max:9007199254740990'],
-            'drawing' => ['required', 'array:gridWidth,gridHeight,drawnCells'],
+            'drawing' => ['required', 'array:gridWidth,gridHeight,drawnCells,view'],
             'drawing.gridWidth' => ['required', 'integer', 'min:0', 'multiple_of:10'],
             'drawing.gridHeight' => ['required', 'integer', 'min:0', 'multiple_of:10'],
             'drawing.drawnCells' => ['present', 'array'],
+            'drawing.view' => ['sometimes', 'array:showBeadPreview,offsetDirection,showDictation,bottomUp,leftToRight'],
+            'drawing.view.showBeadPreview' => ['required_with:drawing.view', 'boolean'],
+            'drawing.view.offsetDirection' => ['required_with:drawing.view', 'in:horizontal,vertical'],
+            'drawing.view.showDictation' => ['required_with:drawing.view', 'boolean'],
+            'drawing.view.bottomUp' => ['required_with:drawing.view', 'boolean'],
+            'drawing.view.leftToRight' => ['required_with:drawing.view', 'boolean'],
         ]);
 
         $drawing = $validated['drawing'];

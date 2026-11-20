@@ -62,6 +62,23 @@ class HandleInertiaRequests extends Middleware
             'url' => is_null($locale) ? $request->getPathInfo() : str_replace("/$locale", "", $request->getPathInfo()),
             'locale' => $locale ?? '',
             'bead_preview_label' => fn () => __('main.bead_preview'),
+            'publicationEditLabel' => fn () => __('main.gallery_publication.edit'),
+            'passwordResetModal' => fn () => [
+                'url' => route('password.email', absolute: false),
+                'labels' => __('passwords.modal'),
+                'sent' => __('passwords.sent'),
+            ],
+            'loginModal' => fn () => [
+                'url' => route('login', absolute: false),
+                'status' => $request->session()->get('status'),
+            ],
+            'newPasswordModal' => fn () => $request->query('modal') === 'reset-password'
+                && $request->session()->has('password_reset') ? [
+                    'email' => $request->session()->get('password_reset.email'),
+                    'resetId' => $request->session()->get('password_reset.id'),
+                    'url' => route('password.store', absolute: false),
+                    'labels' => __('passwords.modal'),
+                ] : null,
             'bead_preview_offsets' => fn () => __('main.bead_preview_offsets'),
             'bead_dictation' => fn () => __('main.bead_dictation'),
             'editor_draft_archive_error' => fn () => __('main.editor_draft_archive_error'),

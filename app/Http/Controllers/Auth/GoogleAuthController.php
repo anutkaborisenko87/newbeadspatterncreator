@@ -80,7 +80,7 @@ class GoogleAuthController
             }
             Auth::login($user);
             session()->forget('redirect_url');
-            return redirect($redirectUrl)->with('success', __('auth.logged_in'));
+            return redirect()->intended($redirectUrl)->with('success', __('auth.logged_in'));
         } catch (Exception $exception) {
             return redirect()->back()->with('error', $exception->getMessage());
         }

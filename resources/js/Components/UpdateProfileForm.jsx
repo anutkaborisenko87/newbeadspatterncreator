@@ -30,6 +30,7 @@ const UpdateProfileForm = () => {
     const [passwordInputType, setPasswordInputType] = useState('password');
     const [confirmPasswordInputType, setConfirmPasswordInputType] = useState('password');
     const [errors, setErrors] = useState({});
+    const [changingPassword, setChangingPassword] = useState(false);
     const handleUpdateProfileData = (e) => {
         e.preventDefault();
         const filteredInputs = Object.keys(formInputs).reduce((acc, key) => {
@@ -173,16 +174,37 @@ const UpdateProfileForm = () => {
                     </div>
                     <div className="flex justify-between items-baseline w-[95%] mx-auto my-0 gap-[0.5em]">
                         <hr className="flex-1 border-t border-[#0E0448]"/>
-                        <span className="px-4 text-gray-700">{props.update_profile_password_title.title ?? ''}</span>
+                        <button type="button" aria-expanded={changingPassword} aria-controls="profile-password-fields"
+                                className="border-0 bg-transparent px-4 text-gray-700 underline cursor-pointer"
+                                onClick={() => {
+                                    if (changingPassword) {
+                                        setFormInputs((current) => ({...current, oldPassword: null, password: null, confirmPassword: null}));
+                                        setOldPasswordInputType('password');
+                                        setPasswordInputType('password');
+                                        setConfirmPasswordInputType('password');
+                                        setOldPasswordLabelVisible(false);
+                                        setPasswordLabelVisible(false);
+                                        setConfirmPasswordLabelVisible(false);
+                                        setErrors(({oldPassword, password, confirmPassword, ...remaining}) => remaining);
+                                    }
+                                    setChangingPassword(!changingPassword);
+                                }}>
+                            {props.update_profile_password_title.title ?? ''}
+                        </button>
                         <hr className="flex-1 border-t border-[#0E0448]"/>
                     </div>
+                    <div id="profile-password-fields" hidden={!changingPassword}>
+                    {changingPassword && <>
                     <div className='flex flex-col p-[1em] justify-center items-start relative'>
-                        {oldPasswordLabelVisible && <label htmlFor="password"
+                        {oldPasswordLabelVisible && <label htmlFor="profile-current-password"
                                                         className={'absolute top-[15%] left-[3%] text-[0.75em] text-[#47484b] bg-[#D9D9D9]'}>
                             {props.update_profile_old_password_label.title ?? ''}
                         </label>}
                         <input type={oldPasswordInputType}
-                               id={'password'}
+                               id="profile-current-password"
+                               autoComplete="off"
+                               readOnly={!oldPasswordLabelVisible}
+                               value={formInputs.oldPassword ?? ''}
                                onFocus={() => setOldPasswordLabelVisible(true)}
                                onBlur={() => {
                                    if (formInputs.oldPassword === null || formInputs.oldPassword === '') setOldPasswordLabelVisible(false);
@@ -209,12 +231,15 @@ const UpdateProfileForm = () => {
                         }
                     </div>
                     <div className='flex flex-col p-[1em] justify-center items-start relative'>
-                        {passwordLabelVisible && <label htmlFor="password"
+                        {passwordLabelVisible && <label htmlFor="profile-new-password"
                                                         className={'absolute top-[15%] left-[3%] text-[0.75em] text-[#47484b] bg-[#D9D9D9]'}>
                             {props.update_profile_new_password_label.title ?? ''}
                         </label>}
                         <input type={passwordInputType}
-                               id={'password'}
+                               id="profile-new-password"
+                               autoComplete="new-password"
+                               readOnly={!passwordLabelVisible}
+                               value={formInputs.password ?? ''}
                                onFocus={() => setPasswordLabelVisible(true)}
                                onBlur={() => {
                                    if (formInputs.password === null || formInputs.password === '') setPasswordLabelVisible(false);
@@ -241,12 +266,15 @@ const UpdateProfileForm = () => {
                         }
                     </div>
                     <div className='flex flex-col p-[1em] justify-center items-start relative'>
-                        {confirmPasswordLabelVisible && <label htmlFor="confirmPassword"
+                        {confirmPasswordLabelVisible && <label htmlFor="profile-confirm-password"
                                                                className={'absolute top-[15%] left-[3%] text-[0.75em] text-[#47484b] bg-[#D9D9D9]'}>
                             {props.register_popup_repeat_password_placeholder.title ?? ''}
                         </label>}
                         <input type={confirmPasswordInputType}
-                               id={'confirmPassword'}
+                               id="profile-confirm-password"
+                               autoComplete="new-password"
+                               readOnly={!confirmPasswordLabelVisible}
+                               value={formInputs.confirmPassword ?? ''}
                                onFocus={() => setConfirmPasswordLabelVisible(true)}
                                onBlur={() => {
                                    if (formInputs.confirmPassword === null || formInputs.confirmPassword === '') setConfirmPasswordLabelVisible(false);
@@ -274,6 +302,8 @@ const UpdateProfileForm = () => {
                         }
                     </div>
 
+                    </>}
+                    </div>
                     <button type={'submit'}
                             className={'bg-[#031945] text-[#ffffff] text-[1em] text-bold px-[1em] py-[1em] rounded-[10px] w-[90%] mx-auto my-[1em] cursor-pointer'}>
                         {props.update_profile_popup_title.title ?? ''}

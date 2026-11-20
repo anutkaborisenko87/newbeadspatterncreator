@@ -3,10 +3,10 @@ import {router} from '@inertiajs/react';
 import {useRef, useState} from 'react';
 import Modal from '@/Components/Modal.jsx';
 
-export default function GalleryPublicationDialog({config, getSnapshot, onClose}) {
-    const {labels, categories, url} = config;
+export default function GalleryPublicationDialog({config, getSnapshot, onClose, onPublished}) {
+    const {labels, categories, url, revision} = config;
     const publicationId = useRef(null);
-    const [category, setCategory] = useState('');
+    const [category, setCategory] = useState(revision?.category ?? '');
     const [saving, setSaving] = useState(false);
     const [errors, setErrors] = useState([]);
 
@@ -24,10 +24,12 @@ export default function GalleryPublicationDialog({config, getSnapshot, onClose})
                 title: form.get('title'),
                 description: form.get('description'),
                 category,
+                ...(revision ? {publicationMode: form.get('publicationMode')} : {}),
                 ...(category === 'new' ? {categoryName: form.get('categoryName')} : {}),
             }, {headers: {Accept: 'application/json'}});
+            onPublished(data.workspace);
             onClose();
-            router.visit(data.galleryUrl);
+            router.visit(data.editorUrl);
         } catch (error) {
             const validation = error.response?.data?.errors;
             setErrors(validation ? Object.values(validation).flat() : [labels.error]);
@@ -39,8 +41,15 @@ export default function GalleryPublicationDialog({config, getSnapshot, onClose})
         <Modal open title={labels.heading} onClose={onClose} closeDisabled={saving} closeLabel={labels.cancel}>
             <form className="gallery-publication-form" onSubmit={submit}>
                 <fieldset disabled={saving}>
-                    <label>{labels.title}<input name="title" required maxLength={255} autoFocus /></label>
-                    <label>{labels.description}<textarea name="description" rows={3} maxLength={5000} /></label>
+                    {revision && <label>{labels.revision_destination}
+                        <select name="publicationMode" required defaultValue="">
+                            <option value="" disabled>{labels.revision_destination}</option>
+                            <option value="replace">{labels.replace}</option>
+                            <option value="new">{labels.publish_new}</option>
+                        </select>
+                    </label>}
+                    <label>{labels.title}<input name="title" defaultValue={revision?.title ?? ''} required maxLength={255} autoFocus /></label>
+                    <label>{labels.description}<textarea name="description" defaultValue={revision?.description ?? ''} rows={3} maxLength={5000} /></label>
                     <label>{labels.category}
                         <select required value={category} onChange={(event) => setCategory(event.target.value)}>
                             <option value="" disabled>{labels.choose_category}</option>

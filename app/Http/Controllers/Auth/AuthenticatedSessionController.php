@@ -4,24 +4,24 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class AuthenticatedSessionController extends Controller
 {
     /**
-     * Display the login view.
+     * Open the shared sign-in modal.
      */
-    public function create(): Response
+    public function create(Request $request): RedirectResponse
     {
-        return Inertia::render('Auth/Login', [
-            'canResetPassword' => Route::has('password.request'),
-            'status' => session('status'),
-        ]);
+        $request->session()->keep('status');
+
+        return redirect()->route('page', ['modal' => 'login']);
     }
 
     /**
@@ -33,7 +33,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->back()->with('success', __('auth.logged_in'));
+        $home = route('page');
+        $previous = url()->previous($home);
+        $fallback = Request::create($previous)->query('modal') === 'login' ? $home : $previous;
+
+        return redirect()->intended($fallback)->with('success', __('auth.logged_in'));
     }
 
     /**
@@ -41,25 +45,39 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $redirectUrl = $this->logoutDestination($request);
         Auth::guard('web')->logout();
 
-        $previousUrl = url()->previous();
         $request->session()->invalidate();
 
         $request->session()->regenerateToken();
         Inertia::clearHistory();
 
-        $protectedPaths = config('protected_paths.logout_redirect_exceptions', []);
-        $isProtected = false;
-        foreach ($protectedPaths as $path) {
-            if (strpos($previousUrl, $path) !== false) {
-                $isProtected = true;
-                break;
+        return redirect($redirectUrl)->with('success', __('auth.logged_out'));
+    }
+
+    private function logoutDestination(Request $request): string
+    {
+        $gallery = route('page', ['slug' => 'gallery'], absolute: false);
+        $previousUrl = url()->previous($gallery);
+        $previous = Request::create($previousUrl);
+
+        if ($previous->getSchemeAndHttpHost() !== $request->getSchemeAndHttpHost()) {
+            return $gallery;
+        }
+
+        try {
+            $route = Route::getRoutes()->match($previous);
+        } catch (HttpExceptionInterface) {
+            return $gallery;
+        }
+
+        foreach (app('router')->gatherRouteMiddleware($route) as $middleware) {
+            if (is_string($middleware) && is_a(explode(':', $middleware, 2)[0], Authenticate::class, true)) {
+                return $gallery;
             }
         }
 
-        $redirectUrl = $isProtected ? '/' : $previousUrl;
-
-        return redirect($redirectUrl)->with('success', __('auth.logged_out'));
+        return $previousUrl;
     }
 }

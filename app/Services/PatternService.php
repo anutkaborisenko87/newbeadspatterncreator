@@ -21,6 +21,21 @@ class PatternService implements PatternServiceInterface
         private Pattern $model
     ) {}
 
+    public function getTopRatedPreviews(): array
+    {
+        return $this->model::query()
+            ->where('published', true)->where('shared', true)
+            ->where(fn ($query) => $query->whereNotNull('pattern_data->galleryPublicationId')
+                ->orWhere(fn ($query) => $query->whereNotNull('preview_image')->where('preview_image', '!=', '')))
+            ->withCount('likes')->orderByDesc('likes_count')->orderByDesc('id')
+            ->limit(4)->get()
+            ->map(fn (Pattern $pattern) => [
+                'id' => $pattern->getKey(),
+                'title' => $pattern->title,
+                'preview' => $pattern->galleryPreviewUrl(),
+            ])->all();
+    }
+
     public function getFilteredPatternsForCommonGallery(): array
     {
         $patterns = $this->model::query()
@@ -68,10 +83,7 @@ class PatternService implements PatternServiceInterface
                 ...($pageName === 'page' ? [PatternsSearch::class] : []),
                 $sortByClass
             ])->thenReturn();
-        $patterns = $patterns->paginate(5, ['*'], $pageName);
-        if (in_array($pageName, ['page', 'drafts_page'], true)) {
-            $patterns->withQueryString();
-        }
+        $patterns = $patterns->paginate(4, ['*'], $pageName)->withQueryString();
         $data = PatternGalleryDTO::collection($patterns->items());
         $response = $patterns->toArray();
         $response['data'] = $data;

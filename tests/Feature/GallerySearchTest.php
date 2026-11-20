@@ -14,6 +14,30 @@ class GallerySearchTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_about_page_gets_up_to_four_public_previews_by_like_count(): void
+    {
+        $author = User::factory()->create(['login' => 'gallery-author']);
+        $patterns = [];
+        foreach (range(1, 5) as $index) {
+            $patterns[] = Pattern::create([
+                'user_id' => $author->id, 'published' => true, 'shared' => true,
+                'title' => "Pattern $index", 'preview_image' => "/images/$index.png",
+            ]);
+        }
+        $patterns[0]->likes()->create(['user_id' => $author->id]);
+        $hidden = Pattern::create([
+            'user_id' => $author->id, 'published' => true, 'shared' => false,
+            'preview_image' => '/images/private.png',
+        ]);
+        $hidden->likes()->create(['user_id' => $author->id]);
+        $patterns[4]->update(['preview_image' => null, 'pattern_data' => ['galleryPublicationId' => 'published']]);
+
+        $results = getMainRatedPicturesList();
+        $this->assertSame([$patterns[0]->id, $patterns[4]->id, $patterns[3]->id, $patterns[2]->id], array_column($results, 'id'));
+        $this->assertSame('/images/1.png', $results[0]['preview']);
+        $this->assertSame(route('gallery.pattern.preview', $patterns[4], absolute: false), $results[1]['preview']);
+    }
+
     public function test_author_links_are_root_relative_for_guests_and_owners(): void
     {
         $author = User::factory()->create(['login' => 'gallery-author']);
