@@ -77,7 +77,7 @@ class GallerySearchTest extends TestCase
         $results = app(PatternService::class)->getFilteredPatternsForCommonGallery();
 
         $this->assertSame(6, $results['total']);
-        $this->assertSame(['Another pattern'], array_column($results['data'], 'title'));
+        $this->assertSame(['Нова схема 5', 'Another pattern'], array_column($results['data'], 'title'));
         parse_str(parse_url($results['prev_page_url'], PHP_URL_QUERY), $previous);
         $this->assertSame('Нова', $previous['patterns_search']);
         $this->assertSame($query['pattern_category_filter'], $previous['pattern_category_filter']);

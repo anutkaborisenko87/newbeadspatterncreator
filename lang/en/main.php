@@ -1,5 +1,41 @@
 <?php
 return [
+    'own_gallery' => [
+        'photo' => 'Product photo',
+        'preview' => 'Pattern preview',
+        'empty' => 'No patterns found.',
+        'comments' => 'Comments',
+        'likes' => 'Likes',
+        'delete' => 'Delete pattern',
+        'confirm_delete' => 'Delete this pattern?',
+        'private_copy' => 'Private copy',
+        'private_copy_by' => 'Private copy of a pattern by :author',
+    ],
+    'author_gallery' => [
+        'copy' => 'Save a private copy',
+        'saved' => 'A private copy was saved to My patterns.',
+        'already_saved' => 'A copy is already in My patterns.',
+        'search' => 'Search patterns',
+        'comment_count' => ':count comment|:count comments',
+    ],
+    'pattern_download' => [
+        'title' => 'Download pattern',
+        'include_dictation' => 'Include written dictation in the image',
+        'flat_grid' => 'Square grid',
+        'layout' => 'The file includes a square grid and the staggered grid if the author enabled it.',
+        'image_only' => 'The saved image is available for this pattern.',
+        'cancel' => 'Cancel',
+        'download' => 'Download',
+        'preparing' => 'Preparing the file…',
+        'error' => 'Could not download the pattern. Please try again.',
+        'too_large' => 'The pattern with these settings is too large for a single image.',
+    ],
+    'private_copy_editor' => [
+        'title' => 'Private copy',
+        'edit' => 'Edit private copy',
+        'save' => 'Save and return',
+        'save_error' => 'Could not save the copy. Please try again.',
+    ],
     'gallery_publication' => [
         'edit' => 'Edit published pattern',
         'revision_destination' => 'Publish revision as',

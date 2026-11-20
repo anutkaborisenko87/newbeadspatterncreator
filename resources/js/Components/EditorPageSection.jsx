@@ -14,9 +14,9 @@ import {useLayoutEffect, useRef, useState} from "react";
 import {getDrawing, startEditorDraft} from '../utils/editorDraft.js';
 import {captureDraftPreview} from '../utils/captureDraftPreview.js';
 
-const EditorWorkspace = ({data, onNewDraft, onPublish, onDiscard, archiving, archiveError, canvasVersion = 0, workspaceRef}) => {
+const EditorWorkspace = ({data, onNewDraft, onPublish, onDiscard, onSaveCopy, archiving, archiveError, canvasVersion = 0, workspaceRef}) => {
     const dispatch = useDispatch();
-    const {bead_preview_label, bead_preview_offsets, bead_dictation, galleryPublication} = usePage().props;
+    const {bead_preview_label, bead_preview_offsets, bead_dictation, galleryPublication, editorPrivateCopy} = usePage().props;
     const {showBeadPreview, offsetDirection, showDictation, bottomUp, leftToRight} = useSelector((state) => state.grid.view);
     const dictation = useBeadDictation(bead_dictation, showDictation, bottomUp, leftToRight);
     const clipboardRef = useRef(null);
@@ -99,7 +99,16 @@ const EditorWorkspace = ({data, onNewDraft, onPublish, onDiscard, archiving, arc
                     </div>
                 </div>
                 <div className="editor-header-aside">
-                    <div className="flex justify-end items-center gap-[1em]">
+                    {editorPrivateCopy ? (
+                        <div className="flex flex-wrap justify-end items-center gap-[1em]" style={{color}}>
+                            <span>{editorPrivateCopy.title}</span>
+                            <button type="button" disabled={archiving} onClick={onSaveCopy}
+                                    className="inline-flex cursor-pointer items-center gap-[0.35em] border-0 bg-transparent p-0 text-inherit disabled:opacity-50">
+                                <Icon name="save" color={color} size={25} aria-hidden="true" />
+                                {editorPrivateCopy.save}
+                            </button>
+                        </div>
+                    ) : <div className="flex justify-end items-center gap-[1em]">
                         {onDiscard && <button type="button" disabled={archiving} onClick={onDiscard}
                             className="border-0 bg-transparent cursor-pointer p-0"
                             title={galleryPublication.labels.discard} aria-label={galleryPublication.labels.discard}>
@@ -122,7 +131,7 @@ const EditorWorkspace = ({data, onNewDraft, onPublish, onDiscard, archiving, arc
                                 onClick={onPublish ?? (() => dispatch(openCloseModal({open: true, mode: 'login'})))}>
                             <Icon name="save" color={color} size={25} aria-hidden="true" />
                         </button>
-                    </div>
+                    </div>}
                     {archiveError && <p role="alert">{archiveError}</p>}
                     <BeadDictationControls
                         labels={bead_dictation}
@@ -158,7 +167,7 @@ const EditorWorkspace = ({data, onNewDraft, onPublish, onDiscard, archiving, arc
 
 function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, workingUrl}) {
     const store = useStore();
-    const {editor_draft_archive_error, galleryPublication} = usePage().props;
+    const {editor_draft_archive_error, galleryPublication, editorPrivateCopy} = usePage().props;
     const initialDraft = useRef(serverDraft);
     const sessionRef = useRef(null);
     const workspaceRef = useRef(null);
@@ -180,14 +189,15 @@ function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, worki
         setArchiveError(null);
         setArchiving(true);
         try {
-            const result = await sessionRef.current.archive();
-            if (typeof result === 'string') {
-                router.visit(result, {onFinish: () => setArchiving(false)});
+            const result = await sessionRef.current.archive({saveCopy: Boolean(editorPrivateCopy)});
+            const returnUrl = editorPrivateCopy?.returnUrl ?? result;
+            if (result && typeof returnUrl === 'string') {
+                router.visit(returnUrl, {onFinish: () => setArchiving(false)});
                 return;
             }
             if (result) setCanvasVersion((value) => value + 1);
         } catch {
-            setArchiveError(editor_draft_archive_error);
+            setArchiveError(editorPrivateCopy?.save_error ?? editor_draft_archive_error);
         }
         setArchiving(false);
     };
@@ -201,7 +211,7 @@ function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, worki
         return {owner, drawing, version, ...preview};
     };
 
-    const discard = galleryPublication.revision ? () => {
+    const discard = galleryPublication?.revision ? () => {
         if (window.confirm(galleryPublication.labels.confirm_discard)) {
             router.delete(galleryPublication.revision.discardUrl);
         }
@@ -209,9 +219,10 @@ function AuthenticatedEditor({data, owner, url, serverDraft, savedDraftId, worki
 
     return ready ? (
         <>
-            <EditorWorkspace data={data} onNewDraft={archive} onPublish={() => setPublishing(true)} onDiscard={discard} archiving={archiving}
+            <EditorWorkspace data={data} onNewDraft={archive} onPublish={() => setPublishing(true)} onDiscard={discard}
+                             onSaveCopy={archive} archiving={archiving}
                              archiveError={archiveError} canvasVersion={canvasVersion} workspaceRef={workspaceRef} />
-            {publishing && <GalleryPublicationDialog config={galleryPublication} getSnapshot={publicationSnapshot}
+            {!editorPrivateCopy && publishing && <GalleryPublicationDialog config={galleryPublication} getSnapshot={publicationSnapshot}
                                                      onPublished={(workspace) => sessionRef.current.finishPublication(workspace)}
                                                      onClose={() => setPublishing(false)} />}
         </>

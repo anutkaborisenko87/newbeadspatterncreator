@@ -5,12 +5,15 @@ import {useSelector} from "react-redux";
 import {useState} from "react";
 
 const Navbar = () => {
-    const {url, locale, nav_menu} = usePage().props;
+    const {url, locale, nav_menu, authorGallery} = usePage().props;
     const {width} = useWindowSize();
     const {mode} = useSelector((state) => state.themeMode);
     const [isMobileMenuVisible, setIsMobileMenuVisible] = useState(false);
     const isActive = (href) => {
         if (url === '' && href === '/') {
+            return true;
+        }
+        if (authorGallery && href === '/gallery') {
             return true;
         }
         return url === href;

@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\EditorDraftController;
 use App\Http\Controllers\BeadSpeechController;
+use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\PagesController;
+use App\Http\Controllers\PatternDownloadController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -11,8 +13,21 @@ require __DIR__.'/auth.php';
 
 Route::get('auth/google/redirect', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])->name('google-auth');
 Route::get('auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callbackGoogle']);
-Route::get('/gallery/{userId}', [\App\Http\Controllers\GalleryController::class, 'indexAuthorGallery'])
+Route::get('/gallery/{userId}', [GalleryController::class, 'indexAuthorGallery'])
     ->where('userId', '[A-Za-z0-9\-_]+')->name('gallery.author');
+Route::post('/gallery/patterns/{pattern}/copy', [GalleryController::class, 'copy'])
+    ->middleware('auth')->whereNumber('pattern')->name('gallery.pattern.copy');
+Route::get('/gallery/patterns/{pattern}/download/{format}', [PatternDownloadController::class, 'published'])
+    ->whereNumber('pattern')->whereIn('format', ['png', 'jpg'])->name('gallery.pattern.download');
+
+Route::middleware('auth')->prefix('my-gallery')->name('gallery.mine')->group(function () {
+    Route::get('/', [GalleryController::class, 'mine']);
+    Route::delete('/{pattern}', [GalleryController::class, 'destroy'])->whereNumber('pattern')->name('.destroy');
+    Route::get('/{pattern}/preview/{format?}', [EditorDraftController::class, 'ownedPreview'])
+        ->whereNumber('pattern')->whereIn('format', ['png', 'jpg'])->name('.preview');
+    Route::get('/{pattern}/download/{format}', [PatternDownloadController::class, 'owned'])
+        ->whereNumber('pattern')->whereIn('format', ['png', 'jpg'])->name('.download');
+});
 
 Route::middleware(['auth', 'verified'])
     ->name('profile.')
@@ -42,8 +57,8 @@ Route::post('/editor/publish/{pattern?}', [EditorDraftController::class, 'publis
     ->middleware('auth')->whereNumber('pattern')->name('editor-draft.publish');
 Route::post('/editor/revisions/{pattern}', [EditorDraftController::class, 'startRevision'])
     ->middleware('auth')->whereNumber('pattern')->name('editor-draft.revision');
-Route::get('/gallery/patterns/{pattern}/preview', [EditorDraftController::class, 'publishedPreview'])
-    ->whereNumber('pattern')->name('gallery.pattern.preview');
+Route::get('/gallery/patterns/{pattern}/preview/{format?}', [EditorDraftController::class, 'publishedPreview'])
+    ->whereNumber('pattern')->whereIn('format', ['png', 'jpg'])->name('gallery.pattern.preview');
 
 Route::get('/bead-speech/{language}/{number}/{count?}', BeadSpeechController::class)
     ->whereIn('language', ['uk', 'en', 'ru'])

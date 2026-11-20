@@ -2,7 +2,6 @@ import {useSelector} from "react-redux";
 import Icon from "@/Components/Icon.jsx";
 
 const AuthorTitleSection = ({data}) => {
-    console.log('AuthorTileSection item: ', data)
     const {mode} = useSelector((state) => state.themeMode);
     let color = '';
     let background = '';
@@ -25,13 +24,11 @@ const AuthorTitleSection = ({data}) => {
             break
     }
     return (
-        <div className={'w-5/6 mx-auto flex justify-center gap-[2em] py-[2em]'}>
-            <div className={`flex justify-between items-center gap-[1em] bg-[${background}] rounded-[15px] p-[1em]`}>
-                <Icon name='profile_logo' color={color} size={40}/>
-                <h2>{data.title}</h2>
-                <h3>{data.author_name}</h3>
-
-            </div>
+        <div className="author-gallery-title my-gallery-width">
+            <h1 style={{color, background}}>
+                <Icon name="profile_logo" color={color} size={48} aria-hidden="true"/>
+                <span>{data.title.trim()} {data.author_name}</span>
+            </h1>
         </div>
     );
 };

@@ -131,7 +131,7 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
     document.addEventListener('visibilitychange', saveWhenHidden);
     if (pending) schedule(750);
 
-    async function archive() {
+    async function archive({saveCopy = false} = {}) {
         if (archiving || stopped) return false;
         archiving = true;
         window.clearTimeout(timer);
@@ -139,22 +139,23 @@ export function startEditorDraft(store, owner, url, serverDraft, savedDraftId, c
         const snapshot = {version, drawing: getDrawing(store.getState().grid)};
 
         try {
-            const preview = capturePreview ? await capturePreview() : null;
-            if (capturePreview && !preview) throw new Error('Draft preview capture failed');
+            const preview = capturePreview ? await capturePreview().catch(() => null) : null;
+            if (capturePreview && !preview && !saveCopy) throw new Error('Draft preview capture failed');
             const payload = {...snapshot, ...preview};
-            if (savedDraftId != null) {
+            if (savedDraftId != null && !saveCopy) {
                 await backupWorkingDraft();
                 restartOperation ??= afterVersion(latestVersion);
                 payload.operation = restartOperation;
             }
-            const response = await saveDraft(url, owner, payload, false, 'POST');
+            const response = await saveDraft(url, owner, payload, false, saveCopy ? 'PUT' : 'POST');
             if (!response.ok) throw new Error('Draft archive failed');
             const nextDraft = await response.json();
+            if (saveCopy && nextDraft.version !== snapshot.version) throw new Error('Newer copy already saved');
             if (stopped) return false;
             pending = null;
             if (savedDraftId != null) {
                 cacheDraft(key, snapshot);
-                return nextDraft.editorUrl;
+                return saveCopy ? true : nextDraft.editorUrl;
             }
             version = nextDraft.version;
             latestVersion = Math.max(latestVersion, version);

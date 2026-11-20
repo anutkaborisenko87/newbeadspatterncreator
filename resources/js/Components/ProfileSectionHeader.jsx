@@ -1,7 +1,7 @@
 import SelectComponent from "@/Components/SelectComponent.jsx";
 import {useWindowSize} from "react-use";
 import SearchInput from "@/Components/SearchInput.jsx";
-import {usePage} from "@inertiajs/react";
+import {Link, usePage} from "@inertiajs/react";
 import {updateQuery} from "@/hooks/updateQuery.js";
 
 const handleSortByChange = (value, slug) => {
@@ -10,9 +10,14 @@ const handleSortByChange = (value, slug) => {
 const ProfileSectionHeader = ({data}) => {
     const props = usePage().props;
     const {width} = useWindowSize();
+    const galleryUrl = data.section_slug === 'my_patterns' ? props.routes?.myGallery : null;
     return (
         <div className="mr-auto flex flex-wrap justify-start items-center">
-            <h2 className={'profile-main-section'}>{data.section_title}</h2>
+            <h2 className={'profile-main-section'}>
+                {galleryUrl
+                    ? <Link href={galleryUrl} className="text-inherit">{data.section_title}</Link>
+                    : data.section_title}
+            </h2>
             {
                 data.empty_data ? <SearchInput
                         placeholderText={props.empty_data_input_placeholder.title}

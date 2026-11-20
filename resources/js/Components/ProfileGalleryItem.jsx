@@ -53,7 +53,7 @@ function DraftCard({data, labels, color}) {
 }
 
 const ProfileGalleryItem = ({data, section_slug, labels}) => {
-    const {publicationEditLabel} = usePage().props;
+    const {publicationEditLabel, privateCopyEditLabel} = usePage().props;
     const {mode} = useSelector((state) => state.themeMode);
     let color = '';
     switch (mode) {
@@ -70,6 +70,8 @@ const ProfileGalleryItem = ({data, section_slug, labels}) => {
             color = '#031945';
     }
     if (section_slug === 'drafts') return <DraftCard data={data} labels={labels} color={color} />;
+    const editUrl = data.editPrivateCopyUrl ?? data.editPublishedUrl;
+    const editLabel = data.editPrivateCopyUrl ? privateCopyEditLabel : publicationEditLabel;
 
     const renderFooter = () => {
         switch (section_slug) {
@@ -78,17 +80,18 @@ const ProfileGalleryItem = ({data, section_slug, labels}) => {
                     <div
                         className="flex flex-wrap items-center gap-x-4 gap-y-2">
                         <h5 className={`text-[1.5em]`} style={{color: color}}>{data.title}</h5>
-
-                        <div className={'flex items-center gap-[0.5em]'}>
-                            <Icon name={'comments'} size={24} color={color}/>
-                            <Link className={`text-[1.3em]`} href={data.comments.link}
-                                  style={{color: color}}>{data.comments.count}</Link>
-                        </div>
-                        <div className={'flex items-center gap-[0.5em]'}>
-                            <Icon className={'cursor-pointer'} name={'likes'} size={24} color={color}/>
-                            <p className={`text-[1.3em]`}
-                               style={{color: color}}>{data.likes.count}</p>
-                        </div>
+                        {data.privateCopyLabel ? <small style={{color}}>{data.privateCopyLabel}</small> : <>
+                            <div className={'flex items-center gap-[0.5em]'}>
+                                <Icon name={'comments'} size={24} color={color}/>
+                                <Link className={`text-[1.3em]`} href={data.comments.link}
+                                      style={{color: color}}>{data.comments.count}</Link>
+                            </div>
+                            <div className={'flex items-center gap-[0.5em]'}>
+                                <Icon className={'cursor-pointer'} name={'likes'} size={24} color={color}/>
+                                <p className={`text-[1.3em]`}
+                                   style={{color: color}}>{data.likes.count}</p>
+                            </div>
+                        </>}
                     </div>
                 );
             default:
@@ -126,11 +129,11 @@ const ProfileGalleryItem = ({data, section_slug, labels}) => {
     }
     return (
         <article className="galery-item-block-background profile-gallery-card profile-pattern-card">
-            {section_slug === 'my_patterns' && data.editPublishedUrl ?
+            {section_slug === 'my_patterns' && editUrl ?
                 <div className="profile-pattern-preview">
                     <img src={data.preview} alt={data.title} />
-                    <Link href={data.editPublishedUrl} method="post" as="button" title={publicationEditLabel}
-                          aria-label={publicationEditLabel} className="border-0 bg-transparent cursor-pointer p-0">
+                    <Link href={editUrl} method={data.editPrivateCopyUrl ? 'get' : 'post'} as="button" title={editLabel}
+                          aria-label={editLabel} className="border-0 bg-transparent cursor-pointer p-0">
                         <Icon name="edit" color={color} size={30} aria-hidden="true" />
                     </Link>
                 </div> : data.link === null ?
