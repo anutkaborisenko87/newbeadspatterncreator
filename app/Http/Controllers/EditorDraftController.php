@@ -7,6 +7,7 @@ use App\Models\Language;
 use App\Models\Pattern;
 use App\Models\PatternCategory;
 use App\Services\CategoryNameTranslator;
+use App\Services\PatternImageExporter;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -158,77 +159,98 @@ class EditorDraftController extends Controller
         return $this->renderPreview($pattern);
     }
 
-    public function publishedPreview(Pattern $pattern): StreamedResponse
+    public function publishedPreview(Pattern $pattern, ?string $format = null): StreamedResponse
     {
-        abort_unless($pattern->published && $pattern->shared && isset($pattern->pattern_data['galleryPublicationId']), 404);
+        abort_unless($pattern->isPubliclyShared() && $pattern->hasEditorDrawing(), 404);
+        if ($format === null) {
+            abort_unless($pattern->published && isset($pattern->pattern_data['galleryPublicationId']), 404);
+        }
 
-        return $this->renderPreview($pattern);
+        return $this->renderPreview($pattern, $format);
     }
 
-    private function renderPreview(Pattern $pattern): StreamedResponse
+    public function ownedPreview(Request $request, Pattern $pattern, ?string $format = null): StreamedResponse
+    {
+        abort_unless($pattern->isInPersonalGalleryOf($request->user()->getKey()) && $pattern->hasEditorDrawing(), 404);
+
+        return $this->renderPreview($pattern, $format);
+    }
+
+    private function renderPreview(Pattern $pattern, ?string $downloadFormat = null): StreamedResponse
     {
         $drawing = $pattern->pattern_data;
         $previewVersion = $drawing['editorPreviewVersion'] ?? null;
         $drawingVersion = $drawing['editorEditVersion'] ?? $drawing['editorDraftVersion'] ?? $previewVersion;
         $offset = !empty($drawing['view']['showBeadPreview']) ? ($drawing['view']['offsetDirection'] ?? 'horizontal') : null;
         $format = $offset ? 'offset-grid' : 'flat-grid';
-        if (isset($drawing['editorPreview']) && ($drawing['editorPreviewFormat'] ?? null) === $format
-            && (int) $previewVersion === (int) $drawingVersion) {
-            return response()->stream(static function () use ($drawing) {
-                echo base64_decode($drawing['editorPreview']);
-            }, 200, ['Content-Type' => 'image/jpeg', 'Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
-        }
+        $storedPreview = isset($drawing['editorPreview']) && ($drawing['editorPreviewFormat'] ?? null) === $format
+            && (int) $previewVersion === (int) $drawingVersion
+            ? base64_decode($drawing['editorPreview'], true) : false;
+        $outputFormat = $downloadFormat ?? ($storedPreview ? 'jpg' : 'png');
+        $writeImage = function () use ($storedPreview, $outputFormat, $drawing, $offset) {
+            if ($storedPreview && $outputFormat === 'jpg') {
+                echo $storedPreview;
+                return;
+            }
 
-        return response()->stream(function () use ($drawing, $offset) {
-            $width = max(1, $drawing['gridWidth']);
-            $height = max(1, $drawing['gridHeight']);
-            $imageWidth = $width + ($offset === 'horizontal' ? 5 : 0);
-            $imageHeight = $height + ($offset === 'vertical' && $width > 10 ? 5 : 0);
-            $scale = min(320 / $imageWidth, 240 / $imageHeight, 1);
-            $image = imagecreatetruecolor((int) ceil($imageWidth * $scale), (int) ceil($imageHeight * $scale));
-            imagefill($image, 0, 0, 0xffffff);
-            if (!$offset && $scale * 10 >= 1) {
-                for ($x = 0; $x <= $width; $x += 10) {
-                    $column = min(imagesx($image) - 1, (int) round($x * $scale));
-                    imageline($image, $column, 0, $column, imagesy($image) - 1, $x % 50 === 0 ? 0xcccccc : 0xeeeeee);
-                }
-                for ($y = 0; $y <= $height; $y += 10) {
-                    $row = min(imagesy($image) - 1, (int) round($y * $scale));
-                    imageline($image, 0, $row, imagesx($image) - 1, $row, ($height - $y) % 50 === 0 ? 0xcccccc : 0xeeeeee);
-                }
+            $image = $storedPreview ? @imagecreatefromstring($storedPreview) : false;
+            $image = $image ?: $this->drawPreview($drawing, $offset);
+            if ($outputFormat === 'jpg') {
+                imagejpeg($image, null, 95);
+            } else {
+                imagepng($image);
             }
-            foreach ($drawing['drawnCells'] as $key => $color) {
-                [$x, $y] = array_map(fn ($coordinate) => (int) $coordinate - 20, explode(',', $key));
-                [$x, $y] = $this->previewCellPosition($x, $y, $width, $height, $offset);
-                imagefilledrectangle($image,
-                    (int) floor($x * $scale), (int) floor($y * $scale),
-                    (int) ceil(($x + 10) * $scale) - 1, (int) ceil(($y + 10) * $scale) - 1,
-                    hexdec(substr($color, 1)));
-            }
-            if ($offset && $scale * 10 >= 2) {
-                $line = imagecolorallocatealpha($image, 180, 180, 180, 70);
-                for ($y = 0; $y < $drawing['gridHeight']; $y += 10) {
-                    for ($x = 0; $x < $drawing['gridWidth']; $x += 10) {
-                        [$left, $top] = $this->previewCellPosition($x, $y, $width, $height, $offset);
-                        imagerectangle($image, (int) round($left * $scale), (int) round($top * $scale),
-                            (int) round(($left + 10) * $scale), (int) round(($top + 10) * $scale), $line);
-                    }
-                }
-            }
-            imagepng($image);
-        }, 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'private, no-store']);
+        };
+        $headers = [
+            'Content-Type' => $outputFormat === 'jpg' ? 'image/jpeg' : 'image/png',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ];
+
+        return $downloadFormat === null
+            ? response()->stream($writeImage, 200, $headers)
+            : response()->streamDownload($writeImage, 'pattern-' . $pattern->getKey() . '.' . $outputFormat, $headers);
     }
 
-    private function previewCellPosition(int $x, int $y, int $width, int $height, ?string $offset): array
+    private function drawPreview(array $drawing, ?string $offset): \GdImage
     {
-        if ($offset === 'horizontal') {
-            $shift = intdiv($height - $y, 10) * 5;
-            $x = (($x - $shift) % $width + $width) % $width;
-        } elseif ($offset === 'vertical') {
-            $y += (intdiv($x, 10) % 2) * 5;
+        $width = max(1, $drawing['gridWidth']);
+        $height = max(1, $drawing['gridHeight']);
+        $imageWidth = $width + ($offset === 'horizontal' ? 5 : 0);
+        $imageHeight = $height + ($offset === 'vertical' && $width > 10 ? 5 : 0);
+        $scale = min(320 / $imageWidth, 240 / $imageHeight, 1);
+        $image = imagecreatetruecolor((int) ceil($imageWidth * $scale), (int) ceil($imageHeight * $scale));
+        imagefill($image, 0, 0, 0xffffff);
+        if (!$offset && $scale * 10 >= 1) {
+            for ($x = 0; $x <= $width; $x += 10) {
+                $column = min(imagesx($image) - 1, (int) round($x * $scale));
+                imageline($image, $column, 0, $column, imagesy($image) - 1, $x % 50 === 0 ? 0xcccccc : 0xeeeeee);
+            }
+            for ($y = 0; $y <= $height; $y += 10) {
+                $row = min(imagesy($image) - 1, (int) round($y * $scale));
+                imageline($image, 0, $row, imagesx($image) - 1, $row, ($height - $y) % 50 === 0 ? 0xcccccc : 0xeeeeee);
+            }
+        }
+        foreach ($drawing['drawnCells'] as $key => $color) {
+            [$x, $y] = array_map(fn ($coordinate) => (int) $coordinate - 20, explode(',', $key));
+            [$x, $y] = PatternImageExporter::cellPosition($x, $y, $width, $height, $offset);
+            imagefilledrectangle($image,
+                (int) floor($x * $scale), (int) floor($y * $scale),
+                (int) ceil(($x + 10) * $scale) - 1, (int) ceil(($y + 10) * $scale) - 1,
+                hexdec(substr($color, 1)));
+        }
+        if ($offset && $scale * 10 >= 2) {
+            $line = imagecolorallocatealpha($image, 180, 180, 180, 70);
+            for ($y = 0; $y < $drawing['gridHeight']; $y += 10) {
+                for ($x = 0; $x < $drawing['gridWidth']; $x += 10) {
+                    [$left, $top] = PatternImageExporter::cellPosition($x, $y, $width, $height, $offset);
+                    imagerectangle($image, (int) round($left * $scale), (int) round($top * $scale),
+                        (int) round(($left + 10) * $scale), (int) round(($top + 10) * $scale), $line);
+                }
+            }
         }
 
-        return [$x, $y];
+        return $image;
     }
 
     public function publish(Request $request, CategoryNameTranslator $translator, ?string $pattern = null): JsonResponse
@@ -236,7 +258,7 @@ class EditorDraftController extends Controller
         $userId = $request->user()->getKey();
         $draftId = $pattern;
         $source = $draftId !== null ? Pattern::find($draftId) : null;
-        abort_if($source && (int) $source->user_id !== $userId, 404);
+        abort_if($source && ((int) $source->user_id !== $userId || $source->isPrivateCopy()), 404);
         $snapshot = $this->validateSnapshot($request);
         if (!$snapshot['drawing']['drawnCells']) {
             throw ValidationException::withMessages(['drawing' => __('main.gallery_publication.empty')]);
@@ -339,19 +361,22 @@ class EditorDraftController extends Controller
     public function updateSaved(Request $request, Pattern $pattern): JsonResponse
     {
         $userId = $request->user()->getKey();
-        abort_unless($pattern->isEditorDraftFor($userId), 404);
+        abort_unless($pattern->canEditSavedDrawing($userId), 404);
         $validated = $this->validateSnapshot($request);
         $preview = $this->validatePreview($request);
 
         $version = DB::transaction(function () use ($pattern, $userId, $validated, $preview) {
             $draft = Pattern::query()->lockForUpdate()->findOrFail($pattern->getKey());
-            abort_unless($draft->isEditorDraftFor($userId), 404);
+            abort_unless($draft->canEditSavedDrawing($userId), 404);
             $snapshot = $draft->editorSnapshot();
             $version = $snapshot['version'];
             if ((int) $validated['version'] > $version) {
                 $version = (int) $validated['version'];
                 $draft->pattern_data = [...$draft->pattern_data, ...$validated['drawing'], 'editorEditVersion' => $version,
                     ...$this->previewData($preview, $version)];
+                if ($draft->isPrivateCopy()) {
+                    $draft->fill(['preview_image' => null, 'pngLink' => null, 'jpgLink' => null]);
+                }
                 $draft->save();
             } elseif ((int) $validated['version'] === $version && $preview !== null && $snapshot['previewVersion'] !== $version) {
                 $draft->pattern_data = [...$draft->pattern_data, ...$this->previewData($preview, $version)];

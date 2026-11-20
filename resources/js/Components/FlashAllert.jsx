@@ -9,6 +9,7 @@ const FlashAlert = () => {
     useEffect(() => {
         // Якщо повідомлення є, встановлюємо таймаут для його приховування
         if (flash?.success || flash?.error) {
+            setVisible(true);
             const timer = setTimeout(() => {
                 setVisible(false);
             }, 5000); // 5000 мілісекунд = 5 секунд

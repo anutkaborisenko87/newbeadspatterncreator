@@ -39,6 +39,9 @@ if (!function_exists('getMainGalleryItemsList')) {
         $patternService = app(PatternServiceInterface::class);
 
         if ($userId) return $patternService->getFilteredPatternsForAuthorGalery($userId);
+        if (request()->routeIs('gallery.mine')) {
+            return $patternService->getOwnerGalleryPatterns(Auth::id());
+        }
         if (request()->routeIs('profile.index')) {
             $userId = Auth::user()->id;
             return [

@@ -28,7 +28,7 @@ const GaleryItem = ({item}) => {
                 <h3 className={`text-[2em]`} style={{color: color}}>{item.title}</h3>
                 <p style={{color: color}}>{item.description}</p>
                 <div
-                    className={width > 900 ? 'flex items-center justify-between' : 'flex flex-col justify-between items-stretch gap-[1em]'}>
+                    className={width > 900 ? 'mt-auto flex items-center justify-between' : 'flex flex-col justify-between items-stretch gap-[1em]'}>
                     <div className={'flex items-center gap-[0.5em]'}>
                         <Icon name={'person_location'} size={24} color={color}/>
                         {item.author.url !== null ?
@@ -71,7 +71,7 @@ const GaleryItem = ({item}) => {
             </div>
             <div
                 className={`flex flex-col justify-center items-center ${width > 900 ? 'w-1/4 px-[2em]' : 'w-5/6 px-[1em]'}`}>
-                <img src={item.preview} alt={item.title} className={'w-full'}/>
+                <img src={item.preview} alt={item.title} className="gallery-pattern-preview"/>
             </div>
         </div>
     );

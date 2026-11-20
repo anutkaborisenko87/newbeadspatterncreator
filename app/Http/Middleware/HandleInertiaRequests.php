@@ -63,6 +63,8 @@ class HandleInertiaRequests extends Middleware
             'locale' => $locale ?? '',
             'bead_preview_label' => fn () => __('main.bead_preview'),
             'publicationEditLabel' => fn () => __('main.gallery_publication.edit'),
+            'patternDownloadLabels' => fn () => __('main.pattern_download'),
+            'privateCopyEditLabel' => fn () => __('main.private_copy_editor.edit'),
             'passwordResetModal' => fn () => [
                 'url' => route('password.email', absolute: false),
                 'labels' => __('passwords.modal'),
@@ -86,6 +88,7 @@ class HandleInertiaRequests extends Middleware
             'nav_menu' => $navMenu,
             'routes' => [
                 'logoLink' => !is_null($user) && $user?->is_admin ? route('filament.adminpannel.pages.dashboard') : '/',
+                'myGallery' => $user ? route('gallery.mine', absolute: false) : null,
             ],
         ], !empty($layouts) ? $layouts->toArray() : []);
 

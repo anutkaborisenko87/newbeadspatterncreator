@@ -28,7 +28,7 @@ class PagesController extends Controller
 
     public function editDraft(Pattern $pattern)
     {
-        abort_unless($pattern->isEditorDraftFor(auth()->id()), 404);
+        abort_unless($pattern->canEditSavedDrawing(auth()->id()), 404);
 
         return $this->renderPage('editor', $pattern);
     }
@@ -40,19 +40,28 @@ class PagesController extends Controller
         $props = $data->toArray();
 
         $editor = in_array('editor_page_section', array_column($data->sections, 'slug'), true);
-        if ($editor) {
+        $privateCopy = $savedDraft?->isPrivateCopy() ?? false;
+        if ($editor && !$privateCopy) {
             $props['galleryPublication'] = ['labels' => __('main.gallery_publication')];
         }
         if ($editor && auth()->check()) {
-            $props['galleryPublication'] += [
-                'url' => route('editor-draft.publish', $savedDraft ? ['pattern' => $savedDraft] : [], absolute: false),
-                'categories' => PatternCategory::with('translate')->get()
-                    ->filter(fn ($category) => $category->translate)
-                    ->map(fn ($category) => ['id' => $category->id, 'title' => $category->translate->title])
-                    ->sortBy('title')->values(),
-            ];
+            if ($privateCopy) {
+                $props['editorPrivateCopy'] = [
+                    ...__('main.private_copy_editor'),
+                    'returnUrl' => route('gallery.mine', absolute: false),
+                ];
+            } else {
+                $props['galleryPublication'] += [
+                    'url' => route('editor-draft.publish', $savedDraft ? ['pattern' => $savedDraft] : [], absolute: false),
+                    'categories' => PatternCategory::with('translate')->get()
+                        ->filter(fn ($category) => $category->translate)
+                        ->map(fn ($category) => ['id' => $category->id, 'title' => $category->translate->title])
+                        ->sortBy('title')->values(),
+                ];
+            }
+
             if ($savedDraft) {
-                $original = isset($savedDraft->pattern_data['revisionOf'])
+                $original = !$privateCopy && isset($savedDraft->pattern_data['revisionOf'])
                     ? Pattern::find($savedDraft->pattern_data['revisionOf']) : null;
                 if ($original?->canRevise(auth()->id())) {
                     $props['galleryPublication']['revision'] = [
@@ -65,7 +74,9 @@ class PagesController extends Controller
                 $props['editorDraft'] = $savedDraft->editorSnapshot();
                 $props['editorDraftUrl'] = route('editor-draft.saved.update', ['pattern' => $savedDraft], absolute: false);
                 $props['editorSavedDraftId'] = $savedDraft->getKey();
-                $props['editorWorkingDraftUrl'] = route('editor-draft.update', absolute: false);
+                if (!$privateCopy) {
+                    $props['editorWorkingDraftUrl'] = route('editor-draft.update', absolute: false);
+                }
             } else {
                 $props['editorDraft'] = EditorDraft::find(auth()->id())?->snapshot();
                 $props['editorDraftUrl'] = route('editor-draft.update', absolute: false);
