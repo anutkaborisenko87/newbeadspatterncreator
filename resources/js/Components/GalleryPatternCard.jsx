@@ -3,6 +3,7 @@ import {Link, router, usePage} from "@inertiajs/react";
 import {useDispatch} from "react-redux";
 import Icon from "@/Components/Icon.jsx";
 import PatternDownloadDialog from "@/Components/PatternDownloadDialog.jsx";
+import PatternLikes from "@/Components/PatternLikes.jsx";
 import {openCloseModal} from "@/store/modalSlice.js";
 
 function GalleryImage({src, label, className}) {
@@ -17,7 +18,7 @@ function GalleryImage({src, label, className}) {
     );
 }
 
-export default function GalleryPatternCard({item, labels, color, authorGallery}) {
+export default function GalleryPatternCard({item, labels, color, authorGallery, publicGallery}) {
     const {user} = usePage().props;
     const dispatch = useDispatch();
     const [deleting, setDeleting] = useState(false);
@@ -56,35 +57,39 @@ export default function GalleryPatternCard({item, labels, color, authorGallery})
         });
     };
 
+    const copyAction = item.copyUrl && <div className="my-gallery-actions">
+        <button type="button" onClick={copyPattern} disabled={copying}
+                title={labels.copy} aria-label={labels.copy}>
+            <Icon name="copy" color={color} size={24} aria-hidden="true"/>
+        </button>
+    </div>;
+
     return (
-        <article className={`my-gallery-card galery-item-block-background ${authorGallery ? 'author-gallery-card' : ''}`} style={{color}}>
+        <article className={`my-gallery-card galery-item-block-background ${authorGallery ? 'author-gallery-card' : ''} ${publicGallery ? 'public-gallery-card' : ''}`} style={{color}}>
             <div className="my-gallery-details">
+                <div className="gallery-card-summary">
                 <div className="my-gallery-card-heading">
                     <h2>{item.title}</h2>
-                    {authorGallery && item.copyUrl && (
-                        <div className="my-gallery-actions">
-                            <button type="button" onClick={copyPattern} disabled={copying}
-                                    title={labels.copy} aria-label={labels.copy}>
-                                <Icon name="copy" color={color} size={24} aria-hidden="true"/>
-                            </button>
-                        </div>
-                    )}
+                    {authorGallery && copyAction}
                 </div>
                 {item.description && <p>{item.description}</p>}
+                </div>
                 <div className="my-gallery-card-footer">
                     {item.privateCopyLabel ? <small>{item.privateCopyLabel}</small> : <div className="my-gallery-stats">
+                        {publicGallery && item.author.name && <span className="gallery-card-author">
+                            <Icon name="person_location" color={color} size={22} aria-hidden="true"/>
+                            <Link href={item.author.url}>{item.author.name}</Link>
+                        </span>}
                         <span>
                             <Icon name="comments" color={color} size={22} aria-hidden="true"/>
-                            {authorGallery ? item.comments.label : <>
+                            {authorGallery || publicGallery ? item.comments.label : <>
                                 <span className="sr-only">{labels.comments} </span>{item.comments.count}
                             </>}
                         </span>
-                        <span>
-                            <Icon name={item.likes.liked ? 'liked' : 'likes'} color={color} size={22} aria-hidden="true"/>
-                            <span className="sr-only">{labels.likes} </span>{item.likes.count}
-                        </span>
+                        <PatternLikes likes={item.likes} color={color}/>
                     </div>}
-                    {!authorGallery && <div className="my-gallery-actions">
+                    {publicGallery && copyAction}
+                    {!authorGallery && !publicGallery && <div className="my-gallery-actions">
                         {item.deleteUrl && <button type="button" onClick={deletePattern} disabled={deleting}
                                                   title={labels.delete} aria-label={labels.delete}>
                             <Icon name="trash" color={color} size={22} aria-hidden="true"/>

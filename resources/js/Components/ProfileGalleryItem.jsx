@@ -1,5 +1,6 @@
 import {useSelector} from "react-redux";
 import Icon from "@/Components/Icon.jsx";
+import PatternLikes from "@/Components/PatternLikes.jsx";
 import {Link, router, usePage} from "@inertiajs/react";
 import {useState} from "react";
 
@@ -86,11 +87,7 @@ const ProfileGalleryItem = ({data, section_slug, labels}) => {
                                 <Link className={`text-[1.3em]`} href={data.comments.link}
                                       style={{color: color}}>{data.comments.count}</Link>
                             </div>
-                            <div className={'flex items-center gap-[0.5em]'}>
-                                <Icon className={'cursor-pointer'} name={'likes'} size={24} color={color}/>
-                                <p className={`text-[1.3em]`}
-                                   style={{color: color}}>{data.likes.count}</p>
-                            </div>
+                            <PatternLikes likes={data.likes} color={color} size={24}/>
                         </>}
                     </div>
                 );
@@ -115,13 +112,7 @@ const ProfileGalleryItem = ({data, section_slug, labels}) => {
                                 <Link className={`text-[1.3em]`} href={data.comments.link}
                                       style={{color: color}}>{data.comments.count}</Link>
                             </div>
-                            <div className={'flex items-center gap-[0.5em]'}>
-                                {data.likes.liked ?
-                                    <Icon className={'cursor-pointer'} name={'liked'} size={24} color={color}/> :
-                                    <Icon className={'cursor-pointer'} name={'likes'} size={24} color={color}/>}
-                                <p className={`text-[1.3em]`}
-                                   style={{color: color}}>{data.likes.count}</p>
-                            </div>
+                            <PatternLikes likes={data.likes} color={color} size={24}/>
                         </div>
                     </div>
                 );

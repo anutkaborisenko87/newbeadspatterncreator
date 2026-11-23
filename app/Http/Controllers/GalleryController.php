@@ -52,6 +52,24 @@ class GalleryController extends Controller
             ->header('Cache-Control', 'private, no-store');
     }
 
+    public function liked(Request $request): Response
+    {
+        $pageData = $this->pageService->getPageData('gallery')->toArray();
+        $gallery = collect($pageData['data']['sections'])->firstWhere('slug', 'gallery_page_section')['gallery_items'] ?? null;
+        if ($gallery && $gallery['current_page'] > $gallery['last_page']) {
+            return redirect()->to($gallery['last_page_url']);
+        }
+
+        $pageData['data']['title'] = __('main.profile_liked_title');
+        $pageData['likedGallery'] = [
+            'title' => $pageData['data']['title'],
+            'copy' => __('main.author_gallery.copy'),
+        ];
+
+        return Inertia::render('Page', $pageData)->toResponse($request)
+            ->header('Cache-Control', 'private, no-store');
+    }
+
     public function copy(Request $request, Pattern $pattern): RedirectResponse
     {
         $owner = $request->user()->getKey();

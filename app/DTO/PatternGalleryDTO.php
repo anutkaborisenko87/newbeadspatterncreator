@@ -32,7 +32,7 @@ final readonly class PatternGalleryDTO
     ) {
     }
 
-    public static function fromModel(Pattern $pattern, bool $ownGallery = false, bool $authorGallery = false): self
+    public static function fromModel(Pattern $pattern, bool $ownGallery = false, bool $includeCopyAction = false): self
     {
         $authUser = Auth::user();
         $owner = $authUser?->id;
@@ -63,7 +63,7 @@ final readonly class PatternGalleryDTO
             : ($draftPreview ? route('editor-draft.destroy', ['pattern' => $pattern], absolute: false) : null);
         $exportRoute = match (true) {
             $ownGallery && $canViewPrivatePreview => 'gallery.mine.preview',
-            $authorGallery && $pattern->isPubliclyShared() && $pattern->hasEditorDrawing() => 'gallery.pattern.preview',
+            $pattern->isPubliclyShared() && $pattern->hasEditorDrawing() => 'gallery.pattern.preview',
             default => null,
         };
         $downloadRoute = match ($exportRoute) {
@@ -101,12 +101,16 @@ final readonly class PatternGalleryDTO
             comments: [
                 'count' => $commentsCount,
                 'link' => $privateCopy ? null : 'editor/' . $encodedId . '/comments',
-                ...($authorGallery ? ['label' => trans_choice('main.author_gallery.comment_count', $commentsCount)] : []),
+                'label' => trans_choice('main.author_gallery.comment_count', $commentsCount),
             ],
 
             likes: [
                 'liked' => $liked,
-                'count' => $pattern->likes->count(),
+                'count' => $pattern->likes->unique('user_id')->count(),
+                'updateUrl' => $owner !== null && (int) $pattern->user_id !== $owner && $pattern->isPubliclyShared()
+                    ? route('gallery.pattern.likes.update', $pattern, absolute: false) : null,
+                'listUrl' => $owner !== null && (int) $pattern->user_id === $owner && !$privateCopy && ($pattern->published || $pattern->shared)
+                    ? route('gallery.pattern.likes.index', $pattern, absolute: false) : null,
             ],
 
             pngLink: $pattern->pngLink ?? ($exportRoute
@@ -120,7 +124,7 @@ final readonly class PatternGalleryDTO
                 ? route('editor-draft.revision', ['pattern' => $pattern], absolute: false) : null,
             editPrivateCopyUrl: $privateCopy && $pattern->canEditSavedDrawing($owner)
                 ? route('editor-draft.edit', ['pattern' => $pattern], absolute: false) : null,
-            copyUrl: $authorGallery && $pattern->isPubliclyShared() && (int) $pattern->user_id !== $owner
+            copyUrl: $includeCopyAction && $pattern->isPubliclyShared() && (int) $pattern->user_id !== $owner
                 ? route('gallery.pattern.copy', ['pattern' => $pattern], absolute: false) : null,
             privateCopyLabel: $privateCopy
                 ? ($originalAuthor ? __('main.own_gallery.private_copy_by', ['author' => $originalAuthor])
@@ -135,12 +139,12 @@ final readonly class PatternGalleryDTO
         );
     }
 
-    public static function collection(iterable $patterns, bool $ownGallery = false, bool $authorGallery = false): array
+    public static function collection(iterable $patterns, bool $ownGallery = false, bool $includeCopyAction = false): array
     {
         $result = [];
 
         foreach ($patterns as $pattern) {
-            $result[] = self::fromModel($pattern, $ownGallery, $authorGallery)->toArray();
+            $result[] = self::fromModel($pattern, $ownGallery, $includeCopyAction)->toArray();
         }
 
         return $result;

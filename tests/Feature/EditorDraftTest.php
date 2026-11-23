@@ -16,6 +16,27 @@ class EditorDraftTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_profile_drafts_page_paginates_only_the_signed_in_authors_drafts(): void
+    {
+        $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);
+        $owner = User::factory()->create(['login' => 'draft-owner']);
+        $other = User::factory()->create(['login' => 'other-author']);
+        for ($i = 1; $i <= 10; $i++) {
+            Pattern::create(['user_id' => $owner->id, 'title' => "Draft $i", 'pattern_data' => ['editorDraftVersion' => 1]]);
+        }
+        Pattern::create(['user_id' => $owner->id, 'published' => true]);
+        Pattern::create(['user_id' => $other->id]);
+
+        $url = route('profile.drafts');
+        $this->getJson($url)->assertUnauthorized();
+        $gallery = 'props.data.sections.0.gallery_items';
+        $this->actingAs($owner)->withHeader('X-Inertia', 'true')->get($url)->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath("$gallery.total", 10)->assertJsonCount(9, "$gallery.data");
+        $this->get(route('profile.drafts', ['drafts_page' => 2]))->assertOk()
+            ->assertJsonCount(1, "$gallery.data")->assertJsonPath("$gallery.data.0.title", 'Draft 1');
+    }
+
     public function test_editor_view_is_restored_and_controls_the_saved_preview_grid(): void
     {
         $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);

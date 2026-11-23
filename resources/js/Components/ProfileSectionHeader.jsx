@@ -10,7 +10,7 @@ const handleSortByChange = (value, slug) => {
 const ProfileSectionHeader = ({data}) => {
     const props = usePage().props;
     const {width} = useWindowSize();
-    const galleryUrl = data.section_slug === 'my_patterns' ? props.routes?.myGallery : null;
+    const galleryUrl = data.url ?? (data.section_slug === 'my_patterns' ? props.routes?.myGallery : null);
     return (
         <div className="mr-auto flex flex-wrap justify-start items-center">
             <h2 className={'profile-main-section'}>

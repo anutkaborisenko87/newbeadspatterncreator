@@ -46,7 +46,11 @@ class ProfileService implements ProfileServiceInterface
                     'sort_select' => $sortSelect,
                     'section_title' => __('main.profile_'.$itemKey . '_title' ),
                     'gallery_items' => $item,
-                    ...($itemKey === 'drafts' ? ['labels' => __('main.profile_draft_cards')] : []),
+                    ...($itemKey === 'liked' ? ['url' => route('profile.liked', absolute: false)] : []),
+                    ...($itemKey === 'drafts' ? [
+                        'labels' => __('main.profile_draft_cards'),
+                        'url' => route('profile.drafts', absolute: false),
+                    ] : []),
                 ];
             }
         }

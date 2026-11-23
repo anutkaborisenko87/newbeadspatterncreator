@@ -5,6 +5,7 @@ use App\Http\Controllers\BeadSpeechController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\PatternDownloadController;
+use App\Http\Controllers\PatternLikeController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -17,6 +18,10 @@ Route::get('/gallery/{userId}', [GalleryController::class, 'indexAuthorGallery']
     ->where('userId', '[A-Za-z0-9\-_]+')->name('gallery.author');
 Route::post('/gallery/patterns/{pattern}/copy', [GalleryController::class, 'copy'])
     ->middleware('auth')->whereNumber('pattern')->name('gallery.pattern.copy');
+Route::middleware('auth')->prefix('gallery/patterns/{pattern}/likes')->whereNumber('pattern')->group(function () {
+    Route::put('/', [PatternLikeController::class, 'update'])->name('gallery.pattern.likes.update');
+    Route::get('/', [PatternLikeController::class, 'index'])->name('gallery.pattern.likes.index');
+});
 Route::get('/gallery/patterns/{pattern}/download/{format}', [PatternDownloadController::class, 'published'])
     ->whereNumber('pattern')->whereIn('format', ['png', 'jpg'])->name('gallery.pattern.download');
 
@@ -34,6 +39,8 @@ Route::middleware(['auth', 'verified'])
     ->prefix('my-profile')
     ->group(function () {
     Route::get('/', [ProfileController::class, 'index'])->name('index');
+    Route::get('/drafts', [ProfileController::class, 'drafts'])->name('drafts');
+    Route::get('/liked', [GalleryController::class, 'liked'])->name('liked');
     Route::get('/edit', [ProfileController::class, 'edit'])->name('edit');
     Route::put('/update', [ProfileController::class, 'update'])->name('update');
     Route::delete('/', [ProfileController::class, 'destroy'])->name('destroy');
