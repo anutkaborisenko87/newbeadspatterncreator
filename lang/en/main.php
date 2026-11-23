@@ -1,5 +1,15 @@
 <?php
 return [
+    'pattern_likes' => [
+        'count' => 'Likes',
+        'add' => 'Like pattern',
+        'remove' => 'Remove like',
+        'list' => 'People who liked this pattern',
+        'empty' => 'No one has liked this pattern yet.',
+        'loading' => 'Loading…',
+        'error' => 'Could not load the list.',
+        'close' => 'Close',
+    ],
     'own_gallery' => [
         'photo' => 'Product photo',
         'preview' => 'Pattern preview',
@@ -111,6 +121,7 @@ return [
     'profile_my_patterns_title' => 'My patterns',
     'profile_drafts_title' => 'My drafts',
     'profile_draft_cards' => [
+        'empty' => 'You have no drafts yet.',
         'preview' => 'Pattern preview',
         'edit' => 'Edit draft',
         'delete' => 'Delete draft',

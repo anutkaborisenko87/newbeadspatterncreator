@@ -63,7 +63,12 @@ class HandleInertiaRequests extends Middleware
             'locale' => $locale ?? '',
             'bead_preview_label' => fn () => __('main.bead_preview'),
             'publicationEditLabel' => fn () => __('main.gallery_publication.edit'),
+            'patternLikeLabels' => fn () => __('main.pattern_likes'),
             'patternDownloadLabels' => fn () => __('main.pattern_download'),
+            'galleryCardLabels' => fn () => [
+                ...\Illuminate\Support\Arr::only(__('main.own_gallery'), ['photo', 'preview', 'empty', 'likes']),
+                'search' => __('main.author_gallery.search'),
+            ],
             'privateCopyEditLabel' => fn () => __('main.private_copy_editor.edit'),
             'passwordResetModal' => fn () => [
                 'url' => route('password.email', absolute: false),

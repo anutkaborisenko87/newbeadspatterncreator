@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Contracts\Services\PatternServiceInterface;
 use App\Contracts\Services\ProfileServiceInterface;
 use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -23,6 +24,23 @@ class ProfileController extends Controller
     {
         return Inertia::render('Page', $this->profileService->getProfilePage());
     }
+
+    public function drafts(Request $request, PatternServiceInterface $patterns): \Symfony\Component\HttpFoundation\Response
+    {
+        $title = __('main.profile_drafts_title');
+
+        return Inertia::render('Page', ['data' => [
+            'title' => $title,
+            'sections' => [[
+                'slug' => 'drafts',
+                'standalone' => true,
+                'section_title' => $title,
+                'labels' => __('main.profile_draft_cards'),
+                'gallery_items' => $patterns->getAuthorPatterns($request->user()->getKey(), draft: true, perPage: 9),
+            ]],
+        ]])->toResponse($request)->header('Cache-Control', 'private, no-store');
+    }
+
     /**
      * Display the user's profile form.
      */

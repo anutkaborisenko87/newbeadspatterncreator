@@ -53,6 +53,50 @@ class OwnGalleryTest extends TestCase
             ->assertJsonCount(1, 'props.data.sections.0.gallery_items.data');
     }
 
+    public function test_liked_gallery_filters_the_readers_public_likes_and_recovers_the_last_page_after_an_unlike(): void
+    {
+        $reader = User::factory()->create(['login' => 'reader']);
+        $author = User::factory()->create(['login' => 'author']);
+        $category = PatternCategory::create();
+        for ($i = 1; $i <= 4; $i++) {
+            $pattern = Pattern::create(['user_id' => $author->id, 'shared' => true, 'title' => "Flower $i"]);
+            $pattern->likes()->create(['user_id' => $reader->id]);
+            $pattern->category()->attach($category);
+            $pattern->forceFill(['created_at' => now()->subDays(5 - $i)])->save();
+        }
+        foreach ([
+            ['Flower hidden', false, $reader, $category],
+            ['Flower liked by someone else', true, $author, $category],
+            ['Different title', true, $reader, $category],
+            ['Flower without category', true, $reader, null],
+        ] as [$title, $shared, $liker, $assignedCategory]) {
+            $extra = Pattern::create(['user_id' => $author->id, 'title' => $title, 'shared' => $shared]);
+            $extra->likes()->create(['user_id' => $liker->id]);
+            if ($assignedCategory) {
+                $extra->category()->attach($assignedCategory);
+            }
+        }
+
+        $this->mock(PageServiceInterface::class)->shouldReceive('getPageData')->with('gallery')
+            ->andReturnUsing(fn () => new PageDataDTO(1, 'Gallery', null, null, [
+                ['slug' => 'gallery_page_section', 'gallery_items' => getMainGalleryItemsList()],
+            ], [], []));
+        $query = ['pattern_category_filter' => encodeModelId($category->id), 'patterns_search' => 'Flower', 'patterns_sort_by' => 'oldest'];
+        $url = route('profile.liked', [...$query, 'page' => 2]);
+        $this->getJson($url)->assertUnauthorized();
+        $path = 'props.data.sections.0.gallery_items';
+        $this->actingAs($reader)->withHeader('X-Inertia', 'true')->get($url)->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath('props.likedGallery.title', __('main.profile_liked_title'))
+            ->assertJsonPath("$path.total", 4)->assertJsonCount(1, "$path.data")
+            ->assertJsonPath("$path.data.0.title", 'Flower 4')->assertJsonPath("$path.data.0.likes.liked", true)
+            ->assertJsonPath("$path.data.0.copyUrl", route('gallery.pattern.copy', $pattern, absolute: false));
+        $this->from($url)->put(route('gallery.pattern.likes.update', $pattern), ['liked' => false])->assertRedirect($url);
+        $this->get($url)->assertRedirect(route('profile.liked', [...$query, 'page' => 1]));
+        $this->get(route('profile.liked', $query))->assertOk()->assertJsonPath("$path.last_page", 1)
+            ->assertJsonCount(3, "$path.data");
+    }
+
     public function test_only_the_owner_can_delete_a_publication_and_the_revision_stays_a_draft(): void
     {
         $owner = User::factory()->create(['login' => 'gallery-owner']);

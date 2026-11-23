@@ -42,6 +42,9 @@ if (!function_exists('getMainGalleryItemsList')) {
         if (request()->routeIs('gallery.mine')) {
             return $patternService->getOwnerGalleryPatterns(Auth::id());
         }
+        if (request()->routeIs('profile.liked')) {
+            return $patternService->getLikedPatterns(Auth::id(), standalone: true);
+        }
         if (request()->routeIs('profile.index')) {
             $userId = Auth::user()->id;
             return [

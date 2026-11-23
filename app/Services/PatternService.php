@@ -49,10 +49,10 @@ class PatternService implements PatternServiceInterface
         if (!$decodedUserId) throw new NotFoundHttpException(__('main.wrong_user_id'));
         $patterns = $this->model::query()->publiclyShared()->where('user_id', $decodedUserId)
             ->with('user:id,login', 'likes', 'comments');
-        return self::getPatternsList($patterns, 'page', PatternsSortBy::class, authorGallery: true);
+        return self::getPatternsList($patterns, 'page', PatternsSortBy::class, includeCopyAction: true);
     }
 
-    public function getAuthorPatterns(int $authUserId, bool $draft): array
+    public function getAuthorPatterns(int $authUserId, bool $draft, int $perPage = 4): array
     {
         $patterns = $this->model::query()
             ->where('user_id', $authUserId)
@@ -62,7 +62,7 @@ class PatternService implements PatternServiceInterface
         } else {
             $patterns->inPersonalGallery()->with('likes', 'comments');
         }
-        return self::getPatternsList($patterns, $draft ? 'drafts_page' : 'my_patterns_page', $draft ? DraftPatternsSortBy::class : MyPatternsSortBy::class);
+        return self::getPatternsList($patterns, $draft ? 'drafts_page' : 'my_patterns_page', $draft ? DraftPatternsSortBy::class : MyPatternsSortBy::class, perPage: $perPage);
     }
 
     public function getOwnerGalleryPatterns(int $userId): array
@@ -73,19 +73,22 @@ class PatternService implements PatternServiceInterface
         return self::getPatternsList($patterns, 'page', PatternsSortBy::class, ownGallery: true);
     }
 
-    public function getLikedPatterns(int $authUserId): array
+    public function getLikedPatterns(int $authUserId, bool $standalone = false): array
     {
-        $patterns = $this->model::query()
-            ->where('published', true)->whereNull('copied_from_id')
-            ->whereHas('likes', function ($query) use ($authUserId) {
-            $query->where('user_id', $authUserId);
-        })->with('user:id,login', 'likes', 'comments');
+        $patterns = $this->model::query()->publiclyShared()
+            ->whereHas('likes', fn ($query) => $query->where('user_id', $authUserId))
+            ->with('user:id,login', 'likes', 'comments');
 
-        return self::getPatternsList($patterns, 'likes_page', LikedPatternsSortBy::class);
+        if ($standalone) {
+            return self::getPatternsList($patterns, 'page', PatternsSortBy::class, includeCopyAction: true);
+        }
+
+        return self::getPatternsList($patterns, 'likes_page', LikedPatternsSortBy::class, perPage: 4);
     }
 
     private static function getPatternsList(
-        $queryBuilder, string $pageName, string $sortByClass, bool $ownGallery = false, bool $authorGallery = false
+        $queryBuilder, string $pageName, string $sortByClass, bool $ownGallery = false, bool $includeCopyAction = false,
+        int $perPage = 3
     ): array
     {
         $patterns = app(Pipeline::class)
@@ -95,8 +98,11 @@ class PatternService implements PatternServiceInterface
                 ...($pageName === 'page' ? [PatternsSearch::class] : []),
                 $sortByClass
             ])->thenReturn();
-        $patterns = $patterns->paginate($ownGallery || $authorGallery ? 3 : 4, ['*'], $pageName)->withQueryString();
-        $data = PatternGalleryDTO::collection($patterns->items(), $ownGallery, $authorGallery);
+        if ($pageName === 'drafts_page' || $includeCopyAction || $pageName === 'likes_page') {
+            $patterns->orderByDesc('id');
+        }
+        $patterns = $patterns->paginate($perPage, ['*'], $pageName)->withQueryString();
+        $data = PatternGalleryDTO::collection($patterns->items(), $ownGallery, $includeCopyAction);
         $response = $patterns->toArray();
         $response['data'] = $data;
         return $response;

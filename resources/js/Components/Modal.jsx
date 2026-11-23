@@ -46,7 +46,7 @@ const Modal = ({children, open, onClose, closeDisabled = false, title, closeLabe
                 close();
             }
             if (event.key === 'Tab') {
-                const fields = [...modalRef.current.querySelectorAll('button, input, textarea, select')]
+                const fields = [...modalRef.current.querySelectorAll('button, input, textarea, select, a[href]')]
                     .filter((field) => !field.matches(':disabled'));
                 const edge = event.shiftKey ? fields.at(0) : fields.at(-1);
                 if (document.activeElement === edge || !modalRef.current.contains(document.activeElement)) {

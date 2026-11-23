@@ -116,6 +116,22 @@ ul {
     @apply w-full flex mt-[2em] h-[70px] bg-[#B9B1EE] dark:bg-[#0E0448] positive:bg-[#B9B1EE] negative:bg-[#0E0448] border-t-2 border-b-2 border-[#0E0448] positive:border-[#0E0448] negative:border-[#B9B1EE] dark:border-[#B9B1EE]
 }
 
+@media (max-width: 540px) {
+    .footer {
+        box-sizing: border-box;
+        width: 100%;
+        margin-inline: auto;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        column-gap: 0.5rem;
+    }
+
+    .footer > div {
+        width: auto;
+        margin-inline: 0;
+    }
+}
+
 .site-layout {
     display: flex;
     flex-direction: column;
@@ -149,6 +165,55 @@ ul {
     border-radius: 15px;
     background: rgba(217, 217, 217, 0.6);
     @apply text-main-text-light dark:text-[#AEC2ED] positive:text-[#031945] negative:text-[#8FA8DE]
+}
+
+.profile-details {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas: "avatar name login edit" "avatar email email edit";
+    align-items: start;
+    gap: 0.5rem clamp(0.75rem, 2vw, 2rem);
+    margin-block: 1rem;
+    overflow-wrap: anywhere;
+}
+
+.profile-avatar { grid-area: avatar; }
+.profile-name { grid-area: name; }
+.profile-login { grid-area: login; }
+.profile-email { grid-area: email; font-size: clamp(1rem, 2vw, 1.5rem); }
+.profile-details h4 { font-size: clamp(1.25rem, 2.4vw, 2rem); }
+
+.profile-edit {
+    grid-area: edit;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+@media (max-width: 900px) {
+    .profile-details {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas: "avatar name edit" "avatar email edit" "avatar login edit";
+    }
+
+    .profile-avatar { width: 48px; height: 48px; }
+}
+
+@media (max-width: 540px) {
+    .profile-details {
+        grid-template-areas: "avatar name edit" "email email email" "login login login";
+        align-items: center;
+        gap: 0.625rem 0.5rem;
+    }
+
+    .profile-avatar { width: 36px; height: 36px; }
+    .profile-edit svg { width: 28px; height: 28px; }
 }
 
 .homepage-main-sections  ul{
@@ -255,54 +320,8 @@ ul {
     @apply text-[#AEC2ED] bg-[#1F51BD] dark:bg-[#AEC2ED] positive:bg-[#031945] negative:bg-[#8FA8DE] dark:text-[#1F51BD] positive:text-[#AEC2ED] negative:text-[#3663C4]
 }
 
-.galery-download-button {
-    color: #031945;
-    background: transparent;
-    @apply flex justify-center items-center gap-[0.5em] border-0 cursor-pointer px-[1em] py-[0.5em] rounded-[5px]
-}
-
-.dark .galery-download-button {
-    color: #AEC2ED;
-}
-
-.positive .galery-download-button {
-    color: #031945;
-}
-
-.negative .galery-download-button {
-    color: #D9D9D9;
-}
-
-.galery-item-block {
-    @apply flex my-[1em] w-5/6 mx-auto rounded-[10px] py-[1em] justify-between
-}
-
-.galery-item-block-mobile {
-    @apply flex  flex-col justify-center items-center my-[1em] w-5/6 mx-auto rounded-[10px] py-[0.5em]  gap-[0.5em]
-}
-
 .galery-item-block-background {
     background: rgba(174, 194, 237, 0.6);
-}
-
-.gallery-pattern-list {
-    display: grid;
-    grid-auto-rows: 1fr;
-    gap: 1em;
-    margin-block: 1em;
-}
-
-.gallery-pattern-list > :is(.galery-item-block, .galery-item-block-mobile) {
-    margin-block: 0;
-}
-
-.gallery-pattern-preview {
-    display: block;
-    width: min(100%, 18rem);
-    height: auto;
-    aspect-ratio: 1;
-    object-fit: contain;
-    background: #fff;
 }
 
 .my-gallery-width {
@@ -467,6 +486,35 @@ ul {
     opacity: 0.55;
 }
 
+.pattern-likes {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font: inherit;
+    color: inherit;
+}
+
+button.pattern-likes {
+    min-height: 1.75rem;
+    padding: 0 0.125rem;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    cursor: pointer;
+}
+
+button.pattern-likes:hover, button.pattern-likes:focus-visible {
+    background: rgb(255 255 255 / 35%);
+}
+
+.pattern-like-users {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0;
+    list-style: none;
+    overflow-wrap: anywhere;
+}
+
 .my-gallery-photo,
 .my-gallery-preview {
     display: grid;
@@ -546,6 +594,94 @@ ul {
 .author-gallery-pagination svg {
     width: 1.5rem;
     height: 1.5rem;
+}
+
+.public-gallery-filters {
+    margin-block: 1rem;
+}
+
+.public-gallery-card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 16.5%) minmax(max-content, 10%) minmax(0, 29%);
+}
+
+.public-gallery-card .my-gallery-details {
+    padding-inline: clamp(0.5rem, 1.5vw, 1.5rem);
+}
+
+.public-gallery-card .my-gallery-stats {
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    font-size: 0.875rem;
+}
+
+.public-gallery-card .my-gallery-stats svg {
+    flex-shrink: 0;
+}
+
+.public-gallery-card .my-gallery-stats a {
+    color: inherit;
+}
+
+.public-gallery-card .my-gallery-downloads {
+    justify-self: end;
+}
+
+.public-gallery-card .my-gallery-preview {
+    height: 9.5rem;
+}
+
+@media (max-width: 900px) {
+    .public-gallery-filters {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .public-gallery-filters form {
+        grid-row: 1;
+    }
+
+    .public-gallery-filters,
+    .my-gallery-list:has(.public-gallery-card) {
+        width: 93%;
+    }
+
+    .my-gallery-card.public-gallery-card {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 21%) auto minmax(0, 37%);
+        grid-template-areas: "summary photo downloads preview" "metadata metadata metadata preview";
+        align-items: start;
+    }
+
+    .public-gallery-card .my-gallery-details { display: contents; }
+    .public-gallery-card .gallery-card-summary { grid-area: summary; overflow-wrap: anywhere; }
+    .public-gallery-card .my-gallery-card-footer { grid-area: metadata; padding-top: 0; }
+    .public-gallery-card .my-gallery-photo { grid-area: photo; }
+    .public-gallery-card .my-gallery-downloads { grid-area: downloads; }
+    .public-gallery-card .my-gallery-preview { grid-area: preview; height: 8.5rem; }
+}
+
+@media (max-width: 600px) {
+    .public-gallery-filters .my-gallery-selects {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .my-gallery-card.public-gallery-card {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        grid-template-areas: "summary summary" "preview preview" "photo downloads" "metadata metadata";
+    }
+
+    .public-gallery-card .my-gallery-preview {
+        height: clamp(10rem, 55vw, 15rem);
+    }
+
+    .public-gallery-card .my-gallery-downloads {
+        align-self: center;
+        justify-self: center;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .public-gallery-card .my-gallery-card-footer {
+        padding: 0.45rem 0.25rem 0.2rem;
+    }
 }
 
 @media (max-width: 780px) {
@@ -699,6 +835,70 @@ ul {
     align-content: start;
     text-align: center;
     font: 600 0.8125rem/1.35 system-ui, sans-serif;
+}
+
+.drafts-page {
+    width: 83.333333%;
+    margin: 1rem auto 3rem;
+}
+
+.drafts-page .my-gallery-title {
+    margin-bottom: 1.5rem;
+}
+
+.drafts-page .profile-gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.drafts-page .profile-draft-card {
+    min-height: 0;
+    grid-template-rows: 1fr auto;
+    padding: 0.75rem;
+    gap: 0.5rem;
+}
+
+.drafts-page .profile-draft-preview {
+    aspect-ratio: 2.8;
+}
+
+.drafts-page .profile-draft-actions {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    flex-direction: column-reverse;
+    justify-content: space-between;
+}
+
+.drafts-page .profile-draft-dates {
+    grid-column: 1;
+    text-align: start;
+}
+
+.drafts-page .pagination-controls {
+    margin-top: 2rem;
+}
+
+@media (max-width: 900px) {
+    .drafts-page {
+        width: calc(100% - 2rem);
+    }
+
+    .drafts-page .my-gallery-title {
+        justify-content: center;
+    }
+
+    .drafts-page .profile-gallery-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .drafts-page .profile-draft-preview {
+        aspect-ratio: 1.8;
+    }
+}
+
+@media (max-width: 540px) {
+    .drafts-page .profile-gallery-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 .about-main-block {
