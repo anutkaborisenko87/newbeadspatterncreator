@@ -1,10 +1,8 @@
 import {useState} from "react";
-import {Link, router, usePage} from "@inertiajs/react";
-import {useDispatch} from "react-redux";
+import {Link, router} from "@inertiajs/react";
 import Icon from "@/Components/Icon.jsx";
-import PatternDownloadDialog from "@/Components/PatternDownloadDialog.jsx";
+import {CopyPattern, PatternDownloads} from "@/Components/PatternActions.jsx";
 import PatternLikes from "@/Components/PatternLikes.jsx";
-import {openCloseModal} from "@/store/modalSlice.js";
 
 function GalleryImage({src, label, className}) {
     const [failedSrc, setFailedSrc] = useState(null);
@@ -19,27 +17,9 @@ function GalleryImage({src, label, className}) {
 }
 
 export default function GalleryPatternCard({item, labels, color, authorGallery, publicGallery}) {
-    const {user} = usePage().props;
-    const dispatch = useDispatch();
     const [deleting, setDeleting] = useState(false);
-    const [copying, setCopying] = useState(false);
-    const [downloadFormat, setDownloadFormat] = useState(null);
-    const legacyDownloads = {png: item.pngLink, jpg: item.jpgLink};
     const editUrl = item.editPrivateCopyUrl ?? item.editPublishedUrl;
     const editLabel = item.editPrivateCopyUrl ? labels.edit_private_copy : labels.edit;
-
-    const copyPattern = () => {
-        if (!user) {
-            dispatch(openCloseModal({open: true, mode: 'login'}));
-            return;
-        }
-
-        router.post(item.copyUrl, {}, {
-            preserveScroll: true,
-            onStart: () => setCopying(true),
-            onFinish: () => setCopying(false),
-        });
-    };
 
     const deletePattern = () => {
         if (!window.confirm(labels.confirm_delete)) return;
@@ -57,12 +37,7 @@ export default function GalleryPatternCard({item, labels, color, authorGallery, 
         });
     };
 
-    const copyAction = item.copyUrl && <div className="my-gallery-actions">
-        <button type="button" onClick={copyPattern} disabled={copying}
-                title={labels.copy} aria-label={labels.copy}>
-            <Icon name="copy" color={color} size={24} aria-hidden="true"/>
-        </button>
-    </div>;
+    const copyAction = <CopyPattern url={item.copyUrl} label={labels.copy} color={color}/>;
 
     return (
         <article className={`my-gallery-card galery-item-block-background ${authorGallery ? 'author-gallery-card' : ''} ${publicGallery ? 'public-gallery-card' : ''}`} style={{color}}>
@@ -82,9 +57,11 @@ export default function GalleryPatternCard({item, labels, color, authorGallery, 
                         </span>}
                         <span>
                             <Icon name="comments" color={color} size={22} aria-hidden="true"/>
-                            {authorGallery || publicGallery ? item.comments.label : <>
-                                <span className="sr-only">{labels.comments} </span>{item.comments.count}
-                            </>}
+                            {item.comments.link
+                                ? <Link href={item.comments.link} aria-label={item.comments.label}>
+                                    {authorGallery || publicGallery ? item.comments.label : item.comments.count}
+                                </Link>
+                                : item.comments.count}
                         </span>
                         <PatternLikes likes={item.likes} color={color}/>
                     </div>}
@@ -102,18 +79,8 @@ export default function GalleryPatternCard({item, labels, color, authorGallery, 
                 </div>
             </div>
             <GalleryImage src={item.photo} label={labels.photo} className="my-gallery-photo"/>
-            <div className="my-gallery-downloads">
-                {['png', 'jpg'].map((format) => (item.download?.[format] || legacyDownloads[format]) && (
-                    <button key={format} type="button" onClick={() => setDownloadFormat(format)}>
-                        <Icon name="download" color={color} size={20} aria-hidden="true"/>
-                        {format.toUpperCase()}
-                    </button>
-                ))}
-            </div>
+            <PatternDownloads item={item} color={color}/>
             <GalleryImage src={item.preview} label={labels.preview} className="my-gallery-preview"/>
-            {downloadFormat && <PatternDownloadDialog format={downloadFormat} settings={item.download}
-                                                       legacyUrl={legacyDownloads[downloadFormat]}
-                                                       onClose={() => setDownloadFormat(null)}/>}
         </article>
     );
 }

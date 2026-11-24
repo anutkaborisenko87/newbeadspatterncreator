@@ -49,7 +49,7 @@ export default function PatternLikes({likes, color, size = 22}) {
             preserveScroll: true,
             onFinish: () => setSaving(false),
             onSuccess: page => {
-                const liked = page.props.data.sections.find(section => section.slug === 'liked')?.gallery_items;
+                const liked = page.props.data?.sections?.find(section => section.slug === 'liked')?.gallery_items;
                 if (liked && liked.current_page > liked.last_page) {
                     router.get(liked.last_page_url, {}, {replace: true, preserveScroll: true});
                 }

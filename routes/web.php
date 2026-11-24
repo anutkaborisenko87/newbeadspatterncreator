@@ -5,6 +5,7 @@ use App\Http\Controllers\BeadSpeechController;
 use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\PatternDownloadController;
+use App\Http\Controllers\PatternCommentController;
 use App\Http\Controllers\PatternLikeController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -13,9 +14,22 @@ use Inertia\Inertia;
 require __DIR__.'/auth.php';
 
 Route::get('auth/google/redirect', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])->name('google-auth');
-Route::get('auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callbackGoogle']);
+Route::get('auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callbackGoogle'])->name('google.callback');
 Route::get('/gallery/{userId}', [GalleryController::class, 'indexAuthorGallery'])
     ->where('userId', '[A-Za-z0-9\-_]+')->name('gallery.author');
+Route::prefix('gallery/patterns/{discussionPattern}/comments')->where(['discussionPattern' => '[0-9a-z]+[0-9a-f]{12}'])->name('patterns.comments.')->group(function () {
+    Route::get('/', [PatternCommentController::class, 'show'])->name('show');
+    Route::middleware(['auth', 'throttle:30,1,discussion-write:'])->group(function () {
+        Route::post('/', [PatternCommentController::class, 'store'])->name('store');
+        Route::patch('/{commentId}', [PatternCommentController::class, 'update'])->whereNumber('commentId')->name('update');
+        Route::delete('/{commentId}', [PatternCommentController::class, 'destroy'])->whereNumber('commentId')->name('destroy');
+    });
+    Route::get('/diagram', [PatternCommentController::class, 'diagram'])->name('diagram');
+});
+Route::get('/gallery/patterns/{pattern}/comments', function (\App\Models\Pattern $pattern) {
+    abort_unless($pattern->isPubliclyShared(), 404);
+    return redirect()->route('patterns.comments.show', encodeModelId($pattern->id));
+})->whereNumber('pattern')->name('patterns.comments.legacy');
 Route::post('/gallery/patterns/{pattern}/copy', [GalleryController::class, 'copy'])
     ->middleware('auth')->whereNumber('pattern')->name('gallery.pattern.copy');
 Route::middleware('auth')->prefix('gallery/patterns/{pattern}/likes')->whereNumber('pattern')->group(function () {

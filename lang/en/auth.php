@@ -17,6 +17,7 @@ return [
     'password' => 'The provided password is incorrect.',
     'throttle' => 'Too many login attempts. Please try again in :seconds seconds.',
     'logged_in' => 'You are logged in',
+    'google_retry' => 'Google sign-in could not be completed. Select Google to try again.',
     'register_success' => 'You have successfully registered',
     'blocked_user' => 'You are blocked',
     'invalid_credentials' => 'Invalid credentials',

@@ -48,6 +48,8 @@ REDIS_PORT=6379
 
 If you change `NGINX_PORT`, use the same port in `APP_URL`. Inside Docker, Laravel connects to `postgres:5432` and `redis:6379`. With the settings above, PostgreSQL is available on the host at `localhost:5433`.
 
+Live comments use Laravel Reverb. Copy the broadcasting and Reverb settings from `src/.env.example` into `src/.env` and set `REVERB_APP_SECRET` to a generated secret (for example, the output of `openssl rand -hex 32`). The Compose service runs `php artisan reverb:start` on the internal port 8080. Nginx forwards WebSocket upgrades under `/app/` to that service on the same public hostname as the site. Use the same proxy path and a supervised Reverb process when deploying outside Compose.
+
 ## 2. Start the containers and initialize the database
 
 Run these commands from the project root.

@@ -12,6 +12,8 @@ use App\Services\PageService;
 use App\Services\PasswordService;
 use App\Services\PatternService;
 use App\Services\ProfileService;
+use App\Models\Pattern;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 
@@ -34,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Route::bind('discussionPattern', fn (string $value) =>
+            Pattern::query()->publiclyShared()->findOrFail(decodeModelId($value))
+        );
         Vite::prefetch(concurrency: 3);
     }
 }
