@@ -84,8 +84,8 @@ const ProfileGalleryItem = ({data, section_slug, labels}) => {
                         {data.privateCopyLabel ? <small style={{color}}>{data.privateCopyLabel}</small> : <>
                             <div className={'flex items-center gap-[0.5em]'}>
                                 <Icon name={'comments'} size={24} color={color}/>
-                                <Link className={`text-[1.3em]`} href={data.comments.link}
-                                      style={{color: color}}>{data.comments.count}</Link>
+                                {data.comments.link ? <Link className="text-[1.3em]" href={data.comments.link}
+                                      style={{color}} aria-label={data.comments.label}>{data.comments.count}</Link> : data.comments.count}
                             </div>
                             <PatternLikes likes={data.likes} color={color} size={24}/>
                         </>}
@@ -109,8 +109,8 @@ const ProfileGalleryItem = ({data, section_slug, labels}) => {
                             </div>
                             <div className={'flex items-center gap-[0.5em]'}>
                                 <Icon name={'comments'} size={24} color={color}/>
-                                <Link className={`text-[1.3em]`} href={data.comments.link}
-                                      style={{color: color}}>{data.comments.count}</Link>
+                                {data.comments.link ? <Link className="text-[1.3em]" href={data.comments.link}
+                                      style={{color}} aria-label={data.comments.label}>{data.comments.count}</Link> : data.comments.count}
                             </div>
                             <PatternLikes likes={data.likes} color={color} size={24}/>
                         </div>

@@ -72,7 +72,7 @@ final readonly class PatternGalleryDTO
             default => null,
         };
         $view = $pattern->pattern_data['view'] ?? [];
-        $commentsCount = $pattern->comments->count();
+        $commentsCount = $pattern->comments->where('approved', true)->count();
         $originalAuthor = $pattern->pattern_data['originalAuthor'] ?? null;
 
         $liked = $authUser
@@ -100,7 +100,7 @@ final readonly class PatternGalleryDTO
 
             comments: [
                 'count' => $commentsCount,
-                'link' => $privateCopy ? null : 'editor/' . $encodedId . '/comments',
+                'link' => $pattern->isPubliclyShared() ? route('patterns.comments.show', $encodedId, absolute: false) : null,
                 'label' => trans_choice('main.author_gallery.comment_count', $commentsCount),
             ],
 

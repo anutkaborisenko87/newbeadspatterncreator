@@ -1,5 +1,27 @@
 <?php
 return [
+    'discussion' => [
+        'edit_locked' => 'This comment has a reply and can no longer be edited.',
+        'show_replies' => 'Show replies',
+        'hide_replies' => 'Hide replies',
+        'edit' => 'Edit comment',
+        'remove' => 'Delete comment',
+        'save' => 'Save',
+        'cancel_edit' => 'Cancel',
+        'confirm_delete' => 'Delete this comment and all nested replies?',
+        'change_failed' => 'Could not change the comment. Please try again.',
+        'title' => 'Comments',
+        'empty' => 'No comments on this pattern yet.',
+        'placeholder' => 'Write a comment…',
+        'send' => 'Send comment',
+        'reply' => 'Reply',
+        'reply_to' => 'Replying to',
+        'cancel' => 'Cancel reply',
+        'sign_in' => 'Sign in to comment',
+        'failed' => 'Could not send your comment. Please try again.',
+        'reconnecting' => 'Reconnecting to the discussion…',
+        'invalid_reply' => 'This comment is no longer available for replies.',
+    ],
     'pattern_likes' => [
         'count' => 'Likes',
         'add' => 'Like pattern',

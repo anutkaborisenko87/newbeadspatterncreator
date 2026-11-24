@@ -13,7 +13,7 @@ const Navbar = () => {
         if (url === '' && href === '/') {
             return true;
         }
-        if (authorGallery && href === '/gallery') {
+        if ((authorGallery || url.startsWith('/gallery/')) && href === '/gallery') {
             return true;
         }
         return url === href;
