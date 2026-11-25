@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Contracts\Services\PatternServiceInterface;
 use App\Models\EditorDraft;
 use App\Models\Language;
 use App\Models\Pattern;
@@ -10,15 +11,31 @@ use App\Services\CategoryNameTranslator;
 use App\Services\PatternImageExporter;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class EditorDraftController extends Controller
 {
-    public function destroy(Request $request, Pattern $pattern): \Illuminate\Http\RedirectResponse
+
+    /**
+     * Deletes an unpublished, unshared editor draft pattern owned by the authenticated user.
+     *
+     * Aborts with a 404 response when the pattern is not an editor draft for the user
+     * or when the draft cannot be deleted.
+     *
+     * Redirects back to the editor when requested for a draft revision; otherwise
+     * redirects back to the previous page.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern The pattern draft being deleted.
+     * @return RedirectResponse The redirect response after deletion.
+     */
+    public function destroy(Request $request, Pattern $pattern): RedirectResponse
     {
         abort_unless($pattern->isEditorDraftFor($request->user()->getKey()), 404);
         abort_unless(Pattern::whereKey($pattern->getKey())->where('user_id', $request->user()->getKey())
@@ -31,32 +48,30 @@ class EditorDraftController extends Controller
         return back(303);
     }
 
-    public function startRevision(Request $request, Pattern $pattern): \Illuminate\Http\RedirectResponse
+    /**
+     * Starts a revision draft for the given pattern and redirects to the draft editor.
+     *
+     * @param Request $request
+     * @param Pattern $pattern
+     * @param PatternServiceInterface $patterns
+     * @return RedirectResponse
+     */
+    public function startRevision(Request $request, Pattern $pattern, PatternServiceInterface $patterns): RedirectResponse
     {
-        $owner = $request->user()->getKey();
-        abort_unless($pattern->canRevise($owner), 404);
-        $draft = DB::transaction(function () use ($owner, $pattern) {
-            User::query()->lockForUpdate()->findOrFail($owner);
-            $original = Pattern::query()->lockForUpdate()->findOrFail($pattern->getKey());
-            abort_unless($original->canRevise($owner), 404);
-
-            return Pattern::where('user_id', $owner)->where('published', false)->where('shared', false)
-                ->where('pattern_data->revisionOf', (string) $original->getKey())->first()
-                ?? Pattern::create([
-                    'user_id' => $owner,
-                    'title' => $original->title,
-                    'description' => $original->description,
-                    'pattern_data' => [
-                        ...array_intersect_key($original->pattern_data, array_flip(['gridWidth', 'gridHeight', 'drawnCells', 'view'])),
-                        'revisionOf' => (string) $original->getKey(),
-                        'editorDraftVersion' => (string) max(1, (int) $original->updated_at?->getTimestampMs() * 1000),
-                    ],
-                ]);
-        });
+        $draft = $patterns->getOrCreateRevisionDraft($pattern, $request->user()->getKey());
 
         return redirect()->route('editor-draft.edit', ['pattern' => $draft], 303);
     }
 
+    /**
+     * Updates the editor draft for the authenticated user with the provided snapshot.
+     *
+     * Aborts with a 404 response when the user is not authenticated or when the draft cannot be updated.
+     *
+     * @param Request $request The current HTTP request containing the snapshot data.
+     * @return JsonResponse A JSON response containing the updated version of the draft.
+     * @throws Throwable
+     */
     public function update(Request $request): JsonResponse
     {
         $userId = $request->user()->getKey();
@@ -75,6 +90,13 @@ class EditorDraftController extends Controller
         return response()->json(['version' => $version]);
     }
 
+    /**
+     * Validates the snapshot data from the request.
+     *
+     * @param Request $request The current HTTP request containing the snapshot data.
+     * @return JsonResponse The validated snapshot data.
+     * @throws Throwable
+     */
     public function archive(Request $request): JsonResponse
     {
         $userId = $request->user()->getKey();
@@ -104,6 +126,21 @@ class EditorDraftController extends Controller
         return response()->json($snapshot);
     }
 
+    /**
+     * Starts the editor from a saved draft pattern owned by the authenticated user.
+     *
+     * Validates the submitted editor snapshot, preview, and operation identifier,
+     * updates the saved pattern with the latest editor state, archives any current
+     * working draft content when needed, and replaces the working draft with the
+     * saved drawing.
+     *
+     * @param Request $request
+     * @param Pattern $pattern
+     * @return JsonResponse
+     *
+     * @throws ValidationException
+     * @throws Throwable
+     */
     public function startFromSaved(Request $request, Pattern $pattern): JsonResponse
     {
         $userId = $request->user()->getKey();
@@ -142,6 +179,14 @@ class EditorDraftController extends Controller
         return response()->json(['editorUrl' => route('page', ['slug' => 'editor'], absolute: false)]);
     }
 
+    /**
+     * Creates a new profile draft pattern for the given user with the specified version, drawing, and optional preview.
+     *
+     * @param int $userId The ID of the user for whom the draft is being created.
+     * @param int $version The version number of the draft.
+     * @param array $drawing The drawing data for the draft.
+     * @param array|null $preview Optional preview data for the draft.
+     */
     private function createProfileDraft(int $userId, int $version, array $drawing, ?array $preview = null): void
     {
         Pattern::create([
@@ -152,6 +197,13 @@ class EditorDraftController extends Controller
         ]);
     }
 
+    /**
+     * Extracts the preview data from the given preview array and version.
+     *
+     * @param Request $request
+     * @param Pattern $pattern
+     * @return StreamedResponse The extracted preview data.
+     */
     public function preview(Request $request, Pattern $pattern): StreamedResponse
     {
         abort_unless($pattern->isEditorDraftFor($request->user()->getKey()), 404);
@@ -159,6 +211,17 @@ class EditorDraftController extends Controller
         return $this->renderPreview($pattern);
     }
 
+    /**
+     * Streams a preview image for a publicly shared pattern.
+     *
+     * Ensures the pattern is publicly accessible and has editor drawing data before
+     * rendering the preview. When no explicit format is requested, the pattern must
+     * also be published and associated with a gallery publication.
+     *
+     * @param Pattern $pattern
+     * @param string|null $format
+     * @return StreamedResponse
+     */
     public function publishedPreview(Pattern $pattern, ?string $format = null): StreamedResponse
     {
         abort_unless($pattern->isPubliclyShared() && $pattern->hasEditorDrawing(), 404);
@@ -169,6 +232,16 @@ class EditorDraftController extends Controller
         return $this->renderPreview($pattern, $format);
     }
 
+    /**
+     * Streams a preview image for a pattern owned by the authenticated user.
+     *
+     * Ensures the pattern is in the personal gallery of the user and has editor drawing data.
+     *
+     * @param Request $request
+     * @param Pattern $pattern
+     * @param string|null $format
+     * @return StreamedResponse
+     */
     public function ownedPreview(Request $request, Pattern $pattern, ?string $format = null): StreamedResponse
     {
         abort_unless($pattern->isInPersonalGalleryOf($request->user()->getKey()) && $pattern->hasEditorDrawing(), 404);
@@ -176,6 +249,13 @@ class EditorDraftController extends Controller
         return $this->renderPreview($pattern, $format);
     }
 
+    /**
+     * Validates the preview data from the request.
+     *
+     * @param Pattern $pattern
+     * @param string|null $downloadFormat
+     * @return StreamedResponse The validated preview data or null if not provided.
+     */
     private function renderPreview(Pattern $pattern, ?string $downloadFormat = null): StreamedResponse
     {
         $drawing = $pattern->pattern_data;
@@ -212,6 +292,13 @@ class EditorDraftController extends Controller
             : response()->streamDownload($writeImage, 'pattern-' . $pattern->getKey() . '.' . $outputFormat, $headers);
     }
 
+    /**
+     * Draws a preview image based on the provided drawing data and offset.
+     *
+     * @param array $drawing The drawing data containing grid dimensions and drawn cells.
+     * @param string|null $offset The offset direction for the preview ('horizontal', 'vertical', or null).
+     * @return \GdImage The generated preview image.
+     */
     private function drawPreview(array $drawing, ?string $offset): \GdImage
     {
         $width = max(1, $drawing['gridWidth']);
@@ -253,12 +340,24 @@ class EditorDraftController extends Controller
         return $image;
     }
 
+    /**
+     * Extracts the preview data from the given preview array and version.
+     *
+     * @param Request $request
+     * @param CategoryNameTranslator $translator
+     * @param string|null $pattern
+     * @return JsonResponse The extracted preview data, including base64-encoded image and format.
+     * @throws Throwable
+     */
     public function publish(Request $request, CategoryNameTranslator $translator, ?string $pattern = null): JsonResponse
     {
         $userId = $request->user()->getKey();
         $draftId = $pattern;
         $source = $draftId !== null ? Pattern::find($draftId) : null;
         abort_if($source && ((int) $source->user_id !== $userId || $source->isPrivateCopy()), 404);
+        if ($request->hasFile('photo') && is_string($request->input('drawing'))) {
+            $request->merge(['drawing' => json_decode($request->input('drawing'), true)]);
+        }
         $snapshot = $this->validateSnapshot($request);
         if (!$snapshot['drawing']['drawnCells']) {
             throw ValidationException::withMessages(['drawing' => __('main.gallery_publication.empty')]);
@@ -268,6 +367,7 @@ class EditorDraftController extends Controller
         $rules = [
             'publicationId' => ['required', 'uuid'],
             'title' => ['required', 'string', 'max:255'],
+            'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'description' => ['nullable', 'string', 'max:5000'],
             'category' => $createCategory ? ['required', Rule::in(['new'])] : ['required', 'integer', Rule::exists('pattern_categories', 'id')],
             'publicationMode' => ['sometimes', Rule::in(['new', 'replace'])],
@@ -328,6 +428,12 @@ class EditorDraftController extends Controller
                 $categoryId = $fields['category'];
             }
 
+            if (isset($fields['photo'])) {
+                $path = $fields['photo']->store('product-photos', 'public');
+                abort_if($path === false, 500);
+                DB::afterRollBack(fn () => \Illuminate\Support\Facades\Storage::disk('public')->delete($path));
+                $publication->photo = '/storage/'.$path;
+            }
             $publication->fill([
                 'user_id' => $userId,
                 'title' => $fields['title'],
@@ -358,6 +464,16 @@ class EditorDraftController extends Controller
         return response()->json([...$result, 'workspace' => $workspace]);
     }
 
+    /**
+     * Updates the saved drawing for the authenticated user with the provided snapshot.
+     *
+     * Aborts with a 404 response when the user is not authenticated or when the saved drawing cannot be updated.
+     *
+     * @param Request $request The current HTTP request containing the snapshot data.
+     * @param Pattern $pattern The saved pattern being updated.
+     * @return JsonResponse A JSON response containing the updated version of the saved drawing.
+     * @throws Throwable
+     */
     public function updateSaved(Request $request, Pattern $pattern): JsonResponse
     {
         $userId = $request->user()->getKey();
@@ -389,6 +505,13 @@ class EditorDraftController extends Controller
         return response()->json(['version' => $version]);
     }
 
+    /**
+     * Validates the preview data from the request.
+     *
+     * @param Request $request The current HTTP request containing the preview data.
+     * @return array|null The validated preview data or null if not provided.
+     * @throws ValidationException If the preview data is invalid.
+     */
     private function validatePreview(Request $request): ?array
     {
         $fields = $request->validate([
@@ -409,11 +532,25 @@ class EditorDraftController extends Controller
         return ['editorPreview' => $preview, 'editorPreviewFormat' => $fields['previewFormat'] ?? null];
     }
 
+    /**
+     * Prepares the preview data for storage by including the editor preview version.
+     *
+     * @param array|null $preview The preview data to be stored.
+     * @param int $version The version number of the editor draft.
+     * @return array The prepared preview data with the editor preview version included.
+     */
     private function previewData(?array $preview, int $version): array
     {
         return $preview === null ? [] : [...$preview, 'editorPreviewVersion' => $version];
     }
 
+    /**
+     * Validates the snapshot data from the request.
+     *
+     * @param Request $request The current HTTP request containing the snapshot data.
+     * @return array The validated snapshot data.
+     * @throws ValidationException If the snapshot data is invalid.
+     */
     private function validateSnapshot(Request $request): array
     {
         abort_unless((string) $request->input('owner') === (string) $request->user()->getKey(), 403);
@@ -445,6 +582,16 @@ class EditorDraftController extends Controller
         return $validated;
     }
 
+    /**
+     * Checks if the given coordinate is a valid grid coordinate based on the specified size.
+     *
+     * A valid grid coordinate must be greater than or equal to 20, less than the size plus 20,
+     * and a multiple of 10.
+     *
+     * @param int $coordinate The coordinate to check.
+     * @param int $size The size of the grid.
+     * @return bool True if the coordinate is valid; otherwise, false.
+     */
     private function isGridCoordinate(int $coordinate, int $size): bool
     {
         return $coordinate >= 20 && $coordinate - 20 < $size && $coordinate % 10 === 0;

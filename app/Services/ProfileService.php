@@ -8,6 +8,7 @@ use App\Contracts\Services\ProfileServiceInterface;
 use App\DTO\AuthProfileDataDTO;
 use App\DTO\ProfileDataDTO;
 use App\Models\User;
+use App\Models\CommentReport;
 use Illuminate\Support\Facades\Auth;
 
 class ProfileService implements ProfileServiceInterface
@@ -18,6 +19,9 @@ class ProfileService implements ProfileServiceInterface
         private PageSectionsServiceInterface $pageSectionsService,
     ) {}
 
+    /**
+     * @inheritDoc
+     */
     public function getProfilePage(): array
     {
         $pageData = $this->pageService->getPageData('gallery')->toArray();
@@ -30,6 +34,12 @@ class ProfileService implements ProfileServiceInterface
         $newSectionsArray = [];
         $newSectionsArray[] = $this->pageSectionsService->getProfileTitleSection();
         $newSectionsArray[] = $this->pageSectionsService->getProfileUserSection(Auth::user());
+        $reports = CommentReport::where('reporter_id', Auth::id())->latest('updated_at')->orderByDesc('id')
+            ->simplePaginate(5, ['id', 'reported_login', 'topic', 'status', 'message', 'decision'], 'reports_page')
+            ->withQueryString()->fragment('my-reports');
+        if ($reports->isNotEmpty() || $reports->currentPage() > 1) {
+            $newSectionsArray[] = ['slug' => 'my_reports', 'reports' => $reports, 'labels' => __('reports')];
+        }
         foreach ($gallerySections as $section) {
             foreach ($section['gallery_items'] as $itemKey=>$item) {
                 $requestedSortBy = request()->query($itemKey . "_sort_by");
@@ -58,11 +68,17 @@ class ProfileService implements ProfileServiceInterface
         return $pageData;
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getAuthUserData(): AuthProfileDataDTO
     {
         return AuthProfileDataDTO::fromUser(Auth::user());
     }
 
+    /**
+     * @inheritDoc
+     */
     public function updateAuthUserData(array $userData): AuthProfileDataDTO
     {
         $updatedUser = User::findOrFail(Auth::id());

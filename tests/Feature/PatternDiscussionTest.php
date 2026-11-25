@@ -6,6 +6,11 @@ use App\DTO\PatternGalleryDTO;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\LocaleMiddleware;
 use App\Models\Pattern;
+use App\Models\CommentReport;
+use App\Notifications\CommentReportReviewed;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Broadcast;
@@ -66,7 +71,7 @@ class PatternDiscussionTest extends TestCase
             ->assertNotFound();
     }
 
-    public function test_only_the_comment_author_can_change_it_and_deleting_removes_its_entire_branch(): void
+    public function test_only_the_comment_author_can_edit_and_pattern_owner_can_remove_the_branch(): void
     {
         $author = User::factory()->create(['login' => 'reader']);
         $owner = User::factory()->create(['login' => 'owner']);
@@ -84,18 +89,71 @@ class PatternDiscussionTest extends TestCase
         $this->patchJson($url, ['comment' => 'Guest'])->assertUnauthorized();
         $this->deleteJson($url)->assertUnauthorized();
         $this->actingAs($owner)->patchJson($url, ['comment' => 'Changed'])->assertForbidden();
-        $this->deleteJson($url)->assertForbidden();
+        $this->actingAs(User::factory()->create(['login' => 'visitor']))->deleteJson($url)->assertForbidden();
         $this->actingAs($author)->deleteJson(route('patterns.comments.destroy', [encodeModelId($other->id), $comment->id]))
             ->assertNotFound();
         $this->patchJson($url, ['comment' => 'Too late'])->assertUnprocessable()->assertJsonValidationErrors('comment');
         $this->assertSame('Edited', $comment->fresh()->comment);
-        $this->deleteJson($url)->assertNoContent();
+        $this->actingAs($owner)->deleteJson($url)->assertNoContent();
         $this->assertModelMissing($comment);
         $this->assertModelMissing($reply);
         $this->assertModelMissing($nested);
         $this->assertModelMissing($secondReply);
         $this->getJson(route('patterns.comments.feed', encodeModelId($pattern->id)))
             ->assertJsonCount(1, 'comments')->assertJsonPath('comments.0.id', $sibling->id);
+    }
+
+    public function test_owner_can_report_another_comment_with_private_evidence_and_receive_a_decision(): void
+    {
+        Storage::fake('local');
+        Notification::fake();
+        $owner = User::factory()->create(['login' => 'owner']);
+        $reader = User::factory()->create(['login' => 'reader']);
+        $pattern = Pattern::create(['user_id' => $owner->id, 'shared' => true]);
+        $comment = $pattern->comments()->create(['user_id' => $reader->id, 'approved' => true, 'comment' => 'Original']);
+        $url = route('patterns.comments.report', [encodeModelId($pattern->id), $comment->id]);
+        $payload = ['topic' => 'spam', 'message' => 'Repeated advertisements'];
+        $this->actingAs($reader)->postJson($url, $payload)->assertForbidden();
+        $this->actingAs($owner)->postJson($url, [...$payload, 'topic' => 'invalid'])->assertUnprocessable();
+        $this->post($url, [...$payload, 'screenshots' => [UploadedFile::fake()->image('proof.png')]])->assertCreated();
+        $report = CommentReport::sole();
+        $comment->delete();
+        $this->assertSame('Original', $report->fresh()->comment_text);
+        Storage::disk('local')->assertExists($report->evidence[0]);
+        $evidence = route('reports.evidence', [$report, 0]);
+        $this->get($evidence)->assertForbidden();
+        $admin = User::factory()->create(['login' => 'admin']);
+        $admin->forceFill(['is_admin' => true])->save();
+        $this->actingAs($admin)->get($evidence)->assertOk();
+        $report->review('upheld', 'Reviewed by moderator');
+        $this->assertSame('Reviewed by moderator', $report->fresh()->decision);
+        Notification::assertSentTo($owner, CommentReportReviewed::class);
+        Notification::assertNotSentTo($reader, CommentReportReviewed::class);
+    }
+
+    public function test_only_owner_can_block_a_reader_in_one_discussion_and_restore_access(): void
+    {
+        $owner = User::factory()->create(['login' => 'owner']);
+        $reader = User::factory()->create(['login' => 'reader']);
+        $pattern = Pattern::create(['user_id' => $owner->id, 'shared' => true]);
+        $other = Pattern::create(['user_id' => $owner->id, 'shared' => true]);
+        $key = encodeModelId($pattern->id);
+        $block = route('patterns.comments.block', [$key, $reader]);
+        $post = route('patterns.comments.store', $key);
+        $comment = $pattern->comments()->create(['user_id' => $reader->id, 'approved' => true, 'comment' => 'First']);
+        $this->putJson($block, ['blocked' => true])->assertUnauthorized();
+        $this->actingAs($reader)->putJson($block, ['blocked' => true])->assertForbidden();
+        $this->actingAs($owner)->putJson(route('patterns.comments.block', [$key, $owner]), ['blocked' => true])->assertForbidden();
+        $this->putJson($block, ['blocked' => true])->assertNoContent();
+        $this->putJson($block, ['blocked' => true])->assertNoContent();
+        $this->actingAs($reader)->postJson($post, ['comment' => 'Top level'])->assertForbidden();
+        $this->postJson($post, ['comment' => 'Reply', 'parent_id' => $comment->id])->assertForbidden();
+        $this->patchJson($post.'/'.$comment->id, ['comment' => 'Changed'])->assertForbidden();
+        $this->assertModelExists($comment);
+        $this->postJson(route('patterns.comments.store', encodeModelId($other->id)), ['comment' => 'Allowed'])->assertCreated();
+        $this->putJson($block, ['blocked' => false])->assertForbidden();
+        $this->actingAs($owner)->putJson($block, ['blocked' => false])->assertNoContent();
+        $this->actingAs($reader)->postJson($post, ['comment' => 'Allowed again'])->assertCreated();
     }
 
     public function test_a_saved_comment_is_sent_to_its_discussion_channel(): void

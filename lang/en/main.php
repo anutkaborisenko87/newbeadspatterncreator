@@ -1,6 +1,10 @@
 <?php
 return [
     'discussion' => [
+        'block' => 'Block commenting',
+        'unblock' => 'Allow commenting',
+        'blocked_users' => 'Blocked users',
+        'blocked_notice' => 'The pattern author has blocked you from commenting on this pattern.',
         'edit_locked' => 'This comment has a reply and can no longer be edited.',
         'show_replies' => 'Show replies',
         'hide_replies' => 'Hide replies',
@@ -69,6 +73,7 @@ return [
         'save_error' => 'Could not save the copy. Please try again.',
     ],
     'gallery_publication' => [
+        'photo' => 'Product photo (optional, JPG, PNG or WebP up to 5 MB)',
         'edit' => 'Edit published pattern',
         'revision_destination' => 'Publish revision as',
         'replace' => 'Update the published pattern',

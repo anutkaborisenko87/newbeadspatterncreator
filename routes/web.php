@@ -6,12 +6,16 @@ use App\Http\Controllers\GalleryController;
 use App\Http\Controllers\PagesController;
 use App\Http\Controllers\PatternDownloadController;
 use App\Http\Controllers\PatternCommentController;
+use App\Http\Controllers\CommentReportController;
 use App\Http\Controllers\PatternLikeController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 require __DIR__.'/auth.php';
+
+Route::get('/report-evidence/{report}/{index}', [CommentReportController::class, 'evidence'])
+    ->middleware('auth')->whereNumber('index')->name('reports.evidence');
 
 Route::get('auth/google/redirect', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'redirect'])->name('google-auth');
 Route::get('auth/google/callback', [\App\Http\Controllers\Auth\GoogleAuthController::class, 'callbackGoogle'])->name('google.callback');
@@ -21,6 +25,8 @@ Route::prefix('gallery/patterns/{discussionPattern}/comments')->where(['discussi
     Route::get('/', [PatternCommentController::class, 'show'])->name('show');
     Route::middleware(['auth', 'throttle:30,1,discussion-write:'])->group(function () {
         Route::post('/', [PatternCommentController::class, 'store'])->name('store');
+        Route::put('/blocks/{user}', [PatternCommentController::class, 'setBlock'])->whereNumber('user')->name('block');
+        Route::post('/{commentId}/reports', [CommentReportController::class, 'store'])->whereNumber('commentId')->name('report');
         Route::patch('/{commentId}', [PatternCommentController::class, 'update'])->whereNumber('commentId')->name('update');
         Route::delete('/{commentId}', [PatternCommentController::class, 'destroy'])->whereNumber('commentId')->name('destroy');
     });

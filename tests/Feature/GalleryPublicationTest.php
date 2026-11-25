@@ -9,7 +9,9 @@ use App\Models\Pattern;
 use App\Models\PatternCategory;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -26,6 +28,7 @@ class GalleryPublicationTest extends TestCase
         $originalDrawing = ['gridWidth' => 30, 'gridHeight' => 30, 'drawnCells' => ['20,20' => '#0000ff']];
         $original = Pattern::create([
             'user_id' => $author->id, 'title' => 'Original', 'published' => true, 'shared' => true,
+            'photo' => '/storage/product-photos/original.jpg',
             'pattern_data' => $originalDrawing,
         ]);
         $original->category()->attach($category);
@@ -48,6 +51,7 @@ class GalleryPublicationTest extends TestCase
         $this->postJson($publish, $payload)->assertOk();
         $this->assertModelMissing($draft);
         $this->assertSame('Updated', $original->fresh()->title);
+        $this->assertSame('/storage/product-photos/original.jpg', $original->fresh()->photo);
         $this->assertSame($changed['drawnCells'], $original->fresh()->pattern_data['drawnCells']);
 
         $this->post($open)->assertStatus(303);
@@ -68,6 +72,7 @@ class GalleryPublicationTest extends TestCase
 
     public function test_author_can_publish_to_an_existing_category_and_share_the_preview(): void
     {
+        Storage::fake('public');
         $this->withoutMiddleware([HandleInertiaRequests::class, LocaleMiddleware::class]);
         $author = User::factory()->create(['login' => 'gallery-author']);
         $category = PatternCategory::create();
@@ -83,10 +88,16 @@ class GalleryPublicationTest extends TestCase
         ];
 
         $this->postJson($url, $payload)->assertUnauthorized();
-        $this->actingAs($author)->postJson($url, $payload)->assertOk()->assertJsonPath('workspace.drawing.drawnCells', [])
+        $upload = [...$payload, 'drawing' => json_encode($payload['drawing'])];
+        $this->actingAs($author)->post($url, [...$upload, 'photo' => UploadedFile::fake()->create('invalid.txt')], ['Accept' => 'application/json'])
+            ->assertUnprocessable()->assertJsonValidationErrors('photo');
+        $this->post($url, [...$upload, 'photo' => UploadedFile::fake()->image('bracelet.jpg')], ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('workspace.drawing.drawnCells', [])
             ->assertJsonPath('editorUrl', route('page', ['slug' => 'editor'], absolute: false));
         $this->postJson($url, $payload)->assertOk();
         $pattern = Pattern::sole();
+        $this->assertStringStartsWith('/storage/product-photos/', $pattern->photo);
+        Storage::disk('public')->assertExists(substr($pattern->photo, strlen('/storage/')));
         $this->assertTrue((bool) $pattern->published);
         $this->assertTrue((bool) $pattern->shared);
         $this->assertSame($category->id, $pattern->category()->sole()->id);

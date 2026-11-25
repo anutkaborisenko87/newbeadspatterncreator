@@ -6,13 +6,21 @@ use App\Models\Pattern;
 use App\Services\PatternImageExporter;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PatternDownloadController extends Controller
 {
-    public function __construct(private PatternImageExporter $exporter)
-    {
-    }
+    public function __construct(private PatternImageExporter $exporter) {}
 
+    /**
+     * Downloads the pattern image for a published pattern in the specified format.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern The published pattern to be downloaded.
+     * @param string $format The desired image format (e.g., 'jpg' or 'png').
+     * @return StreamedResponse The streamed response containing the pattern image.
+     * @throws NotFoundHttpException If the pattern is not publicly shared or does not have an editor drawing.
+     */
     public function published(Request $request, Pattern $pattern, string $format): StreamedResponse
     {
         abort_unless($pattern->isPubliclyShared() && $pattern->hasEditorDrawing(), 404);
@@ -20,6 +28,15 @@ class PatternDownloadController extends Controller
         return $this->download($request, $pattern, $format);
     }
 
+    /**
+     * Downloads the pattern image for a pattern owned by the current user in the specified format.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern The pattern owned by the current user to be downloaded.
+     * @param string $format The desired image format (e.g., 'jpg' or 'png').
+     * @return StreamedResponse The streamed response containing the pattern image.
+     * @throws NotFoundHttpException If the pattern is not owned by the current user or does not have an editor drawing.
+     */
     public function owned(Request $request, Pattern $pattern, string $format): StreamedResponse
     {
         abort_unless($pattern->isInPersonalGalleryOf($request->user()->getKey()) && $pattern->hasEditorDrawing(), 404);
@@ -27,6 +44,14 @@ class PatternDownloadController extends Controller
         return $this->download($request, $pattern, $format);
     }
 
+    /**
+     * Handles the actual download of the pattern image in the specified format.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern The pattern to be downloaded.
+     * @param string $format The desired image format (e.g., 'jpg' or 'png').
+     * @return StreamedResponse The streamed response containing the pattern image.
+     */
     private function download(Request $request, Pattern $pattern, string $format): StreamedResponse
     {
         $options = $request->validate([

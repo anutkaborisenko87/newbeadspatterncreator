@@ -1,10 +1,11 @@
 import {useEffect, useMemo, useRef, useState} from 'react';
-import {Head, Link, usePage} from '@inertiajs/react';
+import {Head, Link, router, usePage} from '@inertiajs/react';
 import {useDispatch} from 'react-redux';
 import axios from 'axios';
 import Pusher from 'pusher-js';
 import Icon from '@/Components/Icon.jsx';
 import PatternLikes from '@/Components/PatternLikes.jsx';
+import ReportCommentDialog from '@/Components/ReportCommentDialog.jsx';
 import {CopyPattern, PatternDownloads} from '@/Components/PatternActions.jsx';
 import {openCloseModal} from '@/store/modalSlice.js';
 
@@ -97,7 +98,27 @@ function CommentActions({entry, canEdit, url, labels, onEdit, onDelete}) {
     </div>;
 }
 
-function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, socketKey, channel}) {
+function refreshPermissions() {
+    router.reload({only: ['commentingBlocked', 'blockedCommenters']});
+}
+
+function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, socketKey, channel, moderator, reportLabels, blockedCommenters, commentingBlocked}) {
+    const [updatingBlock, setUpdatingBlock] = useState(false);
+    const [blockError, setBlockError] = useState('');
+    async function setBlock(id, blocked) {
+        if (updatingBlock) return;
+        setUpdatingBlock(true);
+        setBlockError('');
+        try {
+            await axios.put(`${pattern.comments.link}/blocks/${id}`, {blocked});
+            router.reload({only: ['blockedCommenters'], onFinish: () => setUpdatingBlock(false)});
+        } catch {
+            setBlockError(labels.change_failed);
+            setUpdatingBlock(false);
+        }
+    }
+    const [reportEntry, setReportEntry] = useState(null);
+    const [reportSent, setReportSent] = useState(false);
     const {user, galleryCardLabels} = usePage().props;
     const dispatch = useDispatch();
     const [comments, setComments] = useState(initialComments);
@@ -175,6 +196,7 @@ function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, sock
         subscription.bind('comment.created', ({comment}) => receive(list => mergeComments(list, [comment])));
         subscription.bind('comment.updated', ({comment}) => receive(list => updateEntry(list, comment)));
         subscription.bind('comment.deleted', ({id}) => receive(list => deleteEntry(list, id)));
+        if (user) subscription.bind('permissions.changed', refreshPermissions);
         // Subscribe before reconciling so comments sent during the handshake are included.
         subscription.bind('pusher:subscription_succeeded', () => catchUp());
         const connectionChanged = ({previous, current}) => {
@@ -192,7 +214,7 @@ function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, sock
             socket.connection.unbind('state_change', connectionChanged);
             socket.disconnect();
         };
-    }, [feedUrl, socketKey, channel]);
+    }, [feedUrl, socketKey, channel, user?.id]);
 
     async function submit(event) {
         event.preventDefault();
@@ -206,6 +228,7 @@ function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, sock
             if (reply) setExpanded(previous => new Set([...previous, reply.id]));
             setReplyId(null);
         } catch (failure) {
+            if (failure.response?.status === 403) refreshPermissions();
             setError(failure.response?.data?.errors?.parent_id?.[0] ??
                 failure.response?.data?.errors?.comment?.[0] ?? labels.failed);
         } finally {
@@ -215,6 +238,9 @@ function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, sock
 
     return <div className="discussion-page">
         <Head title={pattern.title ?? labels.title}/>
+        {reportEntry && <ReportCommentDialog entry={reportEntry} url={`${pattern.comments.link}/${reportEntry.id}/reports`}
+            labels={reportLabels} onClose={() => setReportEntry(null)}
+            onSent={() => {setReportEntry(null); setReportSent(true);}}/>}
         <section className="discussion-panel galery-item-block-background">
             <div className="discussion-pattern">
                 <header><h1>{pattern.title}</h1>{pattern.description && <p>{pattern.description}</p>}</header>
@@ -234,6 +260,13 @@ function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, sock
             <section className="discussion-thread" aria-label={labels.title}>
                 <h2><Icon name="comments" color="currentColor" size={22}/>{labels.title} ({comments.length})</h2>
                 {syncError && <p role="status">{labels.reconnecting}</p>}
+                {reportSent && <p role="status">{reportLabels.sent}</p>}
+                {blockError && <p role="alert">{blockError}</p>}
+                {moderator && blockedCommenters.length > 0 && <details>
+                    <summary>{labels.blocked_users} ({blockedCommenters.length})</summary>
+                    {blockedCommenters.map(person => <div key={person.id}>{person.login} · <button type="button"
+                        className="discussion-toggle" disabled={updatingBlock} onClick={() => setBlock(person.id, false)}>{labels.unblock}</button></div>)}
+                </details>}
                 {comments.length === 0 && <p>{labels.empty}</p>}
                 <ol>{ordered.map(({entry, parent, depth, replyCount}) => <li key={entry.id} id={`comment-${entry.id}`}
                     className={parent ? 'discussion-reply' : undefined} style={{'--reply-depth': Math.min(depth, 4)}}>
@@ -245,25 +278,35 @@ function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, sock
                                 <span className="discussion-excerpt">{parent.text}</span>
                             </a>}
                             <p><strong>{entry.login}</strong> {entry.text}</p>
-                            {user && Number(entry.author_id) === Number(user.id) && <CommentActions
-                                entry={entry} canEdit={replyCount === 0 && !entry.has_hidden_replies}
+                            {user && (moderator || Number(entry.author_id) === Number(user.id)) && <CommentActions
+                                entry={entry} canEdit={!commentingBlocked && Number(entry.author_id) === Number(user.id) && replyCount === 0 && !entry.has_hidden_replies}
                                 labels={labels} url={`${pattern.comments.link}/${entry.id}`}
                                 onEdit={updated => setComments(previous => updateEntry(previous, updated))}
                                 onDelete={id => setComments(previous => deleteEntry(previous, id))}/>}
+                            {moderator && Number(entry.author_id) !== Number(user?.id) &&
+                                <div className="discussion-moderation-actions">
+                                    <button type="button" onClick={() => {setReportSent(false); setReportEntry(entry);}}>
+                                        {reportLabels.report}
+                                    </button>
+                                    {!blockedCommenters.some(person => Number(person.id) === Number(entry.author_id)) &&
+                                        <button type="button" disabled={updatingBlock}
+                                            onClick={() => setBlock(entry.author_id, true)}>{labels.block}</button>}
+                                </div>}
                             {replyCount > 0 && <button type="button" className="discussion-toggle"
                                 aria-expanded={expanded.has(entry.id)} onClick={() => toggleReplies(entry.id)}>
                                 {expanded.has(entry.id) ? labels.hide_replies : labels.show_replies} ({replyCount})
                             </button>}
                         </div>
                     </div>
-                    {user && <button type="button" title={labels.reply} aria-label={`${labels.reply} · ${entry.login}`}
+                    {user && !commentingBlocked && <button type="button" title={labels.reply} aria-label={`${labels.reply} · ${entry.login}`}
                                      onClick={() => {setReplyId(entry.id); field.current?.focus();}}>
                         <Icon name="undo_arrow" color="currentColor" size={19}/>
                     </button>}
                 </li>)}</ol>
             </section>
         </section>
-        {user ? <form className="discussion-compose galery-item-block-background" onSubmit={submit}>
+        {commentingBlocked ? <p role="status" className="discussion-compose galery-item-block-background">{labels.blocked_notice}</p>
+        : user ? <form className="discussion-compose galery-item-block-background" onSubmit={submit}>
             <div className="discussion-compose-header">
                 <label htmlFor="discussion-text"><Icon name="profile_logo" color="currentColor" size={24}/>{user.login}</label>
                 {reply && <div className="discussion-quote">

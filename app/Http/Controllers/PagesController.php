@@ -7,12 +7,20 @@ use App\Models\EditorDraft;
 use App\Models\Pattern;
 use App\Models\PatternCategory;
 use Inertia\Inertia;
+use Inertia\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PagesController extends Controller
 {
-    public function __construct(private PageServiceInterface $pageService)
-    {}
+    public function __construct(private PageServiceInterface $pageService) {}
 
+    /**
+     * Displays the specified page based on the provided slug.
+     *
+     * @param string|false $slug The unique page slug or false for the home page.
+     * @return Response The Inertia response containing the page data.
+     * @throws NotFoundHttpException If the page is not found.
+     */
     public function view($slug = false)
     {
         if ($slug === false) {
@@ -26,6 +34,13 @@ class PagesController extends Controller
         abort(404);
     }
 
+    /**
+     * Displays the editor page for editing a saved draft pattern.
+     *
+     * @param Pattern $pattern The saved draft pattern to be edited.
+     * @return Response The Inertia response containing the editor page data.
+     * @throws NotFoundHttpException If the user is not authorized to edit the saved draft.
+     */
     public function editDraft(Pattern $pattern)
     {
         abort_unless($pattern->canEditSavedDrawing(auth()->id()), 404);
@@ -33,6 +48,14 @@ class PagesController extends Controller
         return $this->renderPage('editor', $pattern);
     }
 
+    /**
+     * Renders the specified page with the provided slug and optional saved draft.
+     *
+     * @param string $slug The unique page slug.
+     * @param Pattern|null $savedDraft An optional saved draft pattern for the editor page.
+     * @return Response The Inertia response containing the page data.
+     * @throws NotFoundHttpException If the page is not found or the user is not authorized to edit the saved draft.
+     */
     private function renderPage(string $slug, ?Pattern $savedDraft = null)
     {
         $data = $this->pageService->getPageData($slug);

@@ -8,6 +8,7 @@ import AuthorTitleSection from "@/Components/AuthorTitleSection.jsx";
 import ProfileBreadcrumbs from "@/Components/ProfileBreadcrumbs.jsx";
 import ProfileDataSection from "@/Components/ProfileDataSection.jsx";
 import ProfileGallerySectioms from "@/Components/ProfileGallerySectioms.jsx";
+import MyReports from "@/Components/MyReports.jsx";
 
 const Page = () => {
     const props = usePage().props;
@@ -25,6 +26,7 @@ const Page = () => {
                         {item.slug === 'liked' && <ProfileGallerySectioms data={item}/>}
                         {item.slug === 'profile_title_section' && <ProfileBreadcrumbs data={item}/>}
                         {item.slug === 'profile_user_section' && <ProfileDataSection data={item}/>}
+                        {item.slug === 'my_reports' && <MyReports {...item}/>}
                         {item.slug === 'home_page_section' && <HomePageSection data={item}/>}
                         {item.slug === 'gallery_author_section' && <AuthorTitleSection data={item}/>}
                         {item.slug === 'gallery_page_section' && <GalleryPageSection data={item}/>}

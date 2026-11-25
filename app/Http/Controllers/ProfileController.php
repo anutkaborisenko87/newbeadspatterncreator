@@ -17,14 +17,20 @@ use Inertia\Response;
 class ProfileController extends Controller
 {
     public function __construct(
-        private ProfileServiceInterface $profileService
+        private readonly ProfileServiceInterface $profileService
     ) {}
 
+    /**
+     * Display the user's profile page.
+     */
     public function index(): Response
     {
         return Inertia::render('Page', $this->profileService->getProfilePage());
     }
 
+    /**
+     * Display the user's drafts.
+     */
     public function drafts(Request $request, PatternServiceInterface $patterns): \Symfony\Component\HttpFoundation\Response
     {
         $title = __('main.profile_drafts_title');
