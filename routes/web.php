@@ -7,12 +7,18 @@ use App\Http\Controllers\PagesController;
 use App\Http\Controllers\PatternDownloadController;
 use App\Http\Controllers\PatternCommentController;
 use App\Http\Controllers\CommentReportController;
+use App\Http\Controllers\PatternReportController;
 use App\Http\Controllers\PatternLikeController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 require __DIR__.'/auth.php';
+
+Route::post('/gallery/patterns/{discussionPattern}/reports', [PatternReportController::class, 'store'])
+    ->middleware(['auth', 'throttle:10,1,pattern-reports:'])->name('patterns.report');
+Route::get('/pattern-reports/{report}/preview', [PatternReportController::class, 'preview'])
+    ->middleware('auth')->name('pattern-reports.preview');
 
 Route::get('/report-evidence/{report}/{index}', [CommentReportController::class, 'evidence'])
     ->middleware('auth')->whereNumber('index')->name('reports.evidence');
@@ -46,6 +52,7 @@ Route::get('/gallery/patterns/{pattern}/download/{format}', [PatternDownloadCont
     ->whereNumber('pattern')->whereIn('format', ['png', 'jpg'])->name('gallery.pattern.download');
 
 Route::middleware('auth')->prefix('my-gallery')->name('gallery.mine')->group(function () {
+    Route::delete('/{pattern}/publication', [GalleryController::class, 'unpublish'])->name('.unpublish');
     Route::get('/', [GalleryController::class, 'mine']);
     Route::delete('/{pattern}', [GalleryController::class, 'destroy'])->whereNumber('pattern')->name('.destroy');
     Route::get('/{pattern}/preview/{format?}', [EditorDraftController::class, 'ownedPreview'])

@@ -28,6 +28,9 @@ final readonly class PatternGalleryDTO
         public ?string $copyUrl = null,
         public ?string $privateCopyLabel = null,
         public ?array $download = null,
+        public ?string $reportUrl = null,
+        public ?string $unpublishUrl = null,
+        public ?string $visibilityLabel = null,
 
     ) {
     }
@@ -120,6 +123,12 @@ final readonly class PatternGalleryDTO
             created_at: $pattern->created_at,
             updated_at: $pattern->updated_at,
             deleteUrl: $deleteUrl,
+            reportUrl: $owner !== null && (int) $pattern->user_id !== (int) $owner && $pattern->isPubliclyShared()
+                ? route('patterns.report', $encodedId, absolute: false) : null,
+            unpublishUrl: $owner !== null && (int) $pattern->user_id === (int) $owner && $pattern->isPubliclyShared()
+                ? route('gallery.mine.unpublish', $pattern, absolute: false) : null,
+            visibilityLabel: $ownGallery && !$privateCopy && !$pattern->isPubliclyShared()
+                ? __('pattern_reports.'.($pattern->publication_blocked ? 'blocked' : 'withdrawn')) : null,
             editPublishedUrl: $pattern->canRevise($owner)
                 ? route('editor-draft.revision', ['pattern' => $pattern], absolute: false) : null,
             editPrivateCopyUrl: $privateCopy && $pattern->canEditSavedDrawing($owner)
@@ -171,6 +180,9 @@ final readonly class PatternGalleryDTO
             'copyUrl' => $this->copyUrl,
             'privateCopyLabel' => $this->privateCopyLabel,
             'download' => $this->download,
+            'reportUrl' => $this->reportUrl,
+            'unpublishUrl' => $this->unpublishUrl,
+            'visibilityLabel' => $this->visibilityLabel,
             'createdAt' => $this->created_at?->format(DATE_ATOM),
             'updatedAt' => $this->updated_at?->format(DATE_ATOM),
         ];

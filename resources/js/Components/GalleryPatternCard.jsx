@@ -1,5 +1,6 @@
 import {useState} from "react";
-import {Link, router} from "@inertiajs/react";
+import {Link, router, usePage} from "@inertiajs/react";
+import ReportDialog from "@/Components/ReportDialog.jsx";
 import Icon from "@/Components/Icon.jsx";
 import {CopyPattern, PatternDownloads} from "@/Components/PatternActions.jsx";
 import PatternLikes from "@/Components/PatternLikes.jsx";
@@ -18,6 +19,9 @@ function GalleryImage({src, label, className}) {
 
 export default function GalleryPatternCard({item, labels, color, authorGallery, publicGallery}) {
     const [deleting, setDeleting] = useState(false);
+    const [reportOpen, setReportOpen] = useState(false);
+    const [sent, setSent] = useState(false);
+    const {reportLabels} = usePage().props.galleryCardLabels;
     const editUrl = item.editPrivateCopyUrl ?? item.editPublishedUrl;
     const editLabel = item.editPrivateCopyUrl ? labels.edit_private_copy : labels.edit;
 
@@ -45,9 +49,26 @@ export default function GalleryPatternCard({item, labels, color, authorGallery, 
                 <div className="gallery-card-summary">
                 <div className="my-gallery-card-heading">
                     <h2>{item.title}</h2>
+                    {item.reportUrl && (publicGallery || authorGallery) && !sent &&
+                        <button className="gallery-title-action" type="button" onClick={() => setReportOpen(true)}
+                                title={reportLabels.report} aria-label={reportLabels.report}>
+                            <Icon name="flag" size={22} color="currentColor" aria-hidden="true"/>
+                        </button>}
+                    {item.unpublishUrl && <button className="gallery-title-action" type="button" disabled={deleting}
+                        title={reportLabels.withdraw} aria-label={reportLabels.withdraw} onClick={() => {
+                            if (window.confirm(reportLabels.confirm_withdraw)) router.delete(item.unpublishUrl, {
+                                preserveScroll: true, onStart: () => setDeleting(true), onFinish: () => setDeleting(false),
+                            });
+                        }}>
+                        <Icon name="hide_password" size={22} color="currentColor" aria-hidden="true"/>
+                    </button>}
                     {authorGallery && copyAction}
                 </div>
                 {item.description && <p>{item.description}</p>}
+                {item.visibilityLabel && <small>{item.visibilityLabel}</small>}
+                {sent && <small role="status">{reportLabels.submitted}</small>}
+                {reportOpen && <ReportDialog subject={item.title} url={item.reportUrl} labels={reportLabels}
+                    onClose={() => setReportOpen(false)} onSent={() => {setReportOpen(false); setSent(true);}}/>}
                 </div>
                 <div className="my-gallery-card-footer">
                     {item.privateCopyLabel ? <small>{item.privateCopyLabel}</small> : <div className="my-gallery-stats">

@@ -16,6 +16,13 @@ use Throwable;
 
 class GalleryController extends Controller
 {
+    public function unpublish(Request $request, Pattern $pattern): RedirectResponse
+    {
+        abort_unless((int) $pattern->user_id === (int) $request->user()->id && !$pattern->isPrivateCopy(), 403);
+        Pattern::whereKey($pattern->id)->publiclyShared()->update(['published' => true, 'shared' => false]);
+        return back(303, [], route('gallery.mine'));
+    }
+
     public function __construct(
         private PageServiceInterface $pageService,
         private PageSectionsServiceInterface $pageSectionsService,

@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'navigation_group' => 'Reports',
     'admin' => 'User reports',
     'mine' => 'My reports',
     'report' => 'Report user',

@@ -15,6 +15,11 @@ class CommentReportResource extends Resource
 {
     protected static ?string $model = CommentReport::class;
 
+    public static function getNavigationGroup(): string
+    {
+        return __('reports.navigation_group');
+    }
+
     public static function getPluralModelLabel(): string
     {
         return __('reports.admin');
