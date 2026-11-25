@@ -14,6 +14,9 @@ class PageSectionsService implements PageSectionsServiceInterface
     {
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getPageSections(): Collection
     {
         $this->pageSections = $this->pageSections
@@ -27,6 +30,11 @@ class PageSectionsService implements PageSectionsServiceInterface
         return $this->pageSections;
     }
 
+    /**
+     * @param string $rules
+     * @param string $translation
+     * @return Collection
+     */
     private function parseSectionRules(string $rules, string $translation): Collection
     {
         $rules = json_decode($rules, true);
@@ -58,6 +66,9 @@ class PageSectionsService implements PageSectionsServiceInterface
         return function_exists($functionName) ? $functionName() : [];
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getGalleryAuthorSection(string $userId): array
     {
         $decodedUserId = decodeModelId($userId);
@@ -70,6 +81,9 @@ class PageSectionsService implements PageSectionsServiceInterface
         ];
     }
 
+    /**
+     * @inheritDoc
+     */
     public static function getProfileTitleSection(): array
     {
         return [
@@ -78,6 +92,9 @@ class PageSectionsService implements PageSectionsServiceInterface
         ];
     }
 
+    /**
+     * @inheritDoc
+     */
     public static function getProfileUserSection(User $user): array
     {
         return [

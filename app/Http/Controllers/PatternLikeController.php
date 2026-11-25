@@ -8,9 +8,19 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class PatternLikeController extends Controller
 {
+    /**
+     * Updates the like status of a pattern for the current user.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern The pattern for which the like status is to be updated.
+     * @return RedirectResponse A redirect response back to the previous page.
+     * @throws ValidationException|Throwable If the request validation fails.
+     */
     public function update(Request $request, Pattern $pattern): RedirectResponse
     {
         $request->validate(['liked' => ['required', 'boolean']]);
@@ -30,6 +40,13 @@ class PatternLikeController extends Controller
         return back(303);
     }
 
+    /**
+     * Retrieves the list of users who have liked a specific pattern.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern The pattern for which the list of users is to be retrieved.
+     * @return JsonResponse A JSON response containing the list of users who liked the pattern.
+     */
     public function index(Request $request, Pattern $pattern): JsonResponse
     {
         abort_unless((int) $pattern->user_id === $request->user()->getKey()

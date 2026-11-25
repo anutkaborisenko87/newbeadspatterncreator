@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Contracts\Services\PatternServiceInterface;
 use App\DTO\PatternGalleryDTO;
 use App\Models\Pattern;
+use App\Models\User;
 use App\QueryFilters\DraftPatternsSortBy;
 use App\QueryFilters\LikedPatternsSortBy;
 use App\QueryFilters\MyPatternsSortBy;
@@ -12,6 +13,7 @@ use App\QueryFilters\PatternCategoryFilter;
 use App\QueryFilters\PatternsSearch;
 use App\QueryFilters\PatternsSortBy;
 use Illuminate\Pipeline\Pipeline;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PatternService implements PatternServiceInterface
@@ -20,6 +22,36 @@ class PatternService implements PatternServiceInterface
         private Pattern $model
     ) {}
 
+    /**
+     * @inheritDoc
+     */
+    public function getOrCreateRevisionDraft(Pattern $pattern, int $owner): Pattern
+    {
+        abort_unless($pattern->canRevise($owner), 404);
+        return DB::transaction(function () use ($owner, $pattern) {
+            User::query()->lockForUpdate()->findOrFail($owner);
+            $original = Pattern::query()->lockForUpdate()->findOrFail($pattern->getKey());
+            abort_unless($original->canRevise($owner), 404);
+
+            return Pattern::where('user_id', $owner)->where('published', false)->where('shared', false)
+                ->where('pattern_data->revisionOf', (string) $original->getKey())->first()
+                ?? Pattern::create([
+                    'user_id' => $owner,
+                    'title' => $original->title,
+                    'description' => $original->description,
+                    'photo' => $original->photo,
+                    'pattern_data' => [
+                        ...array_intersect_key($original->pattern_data, array_flip(['gridWidth', 'gridHeight', 'drawnCells', 'view'])),
+                        'revisionOf' => (string) $original->getKey(),
+                        'editorDraftVersion' => (string) max(1, (int) $original->updated_at?->getTimestampMs() * 1000),
+                    ],
+                ]);
+        });
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function getTopRatedPreviews(): array
     {
         return $this->model::query()
@@ -35,6 +67,9 @@ class PatternService implements PatternServiceInterface
             ])->all();
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getFilteredPatternsForCommonGallery(): array
     {
         $patterns = $this->model::query()
@@ -43,6 +78,9 @@ class PatternService implements PatternServiceInterface
         return self::getPatternsList($patterns, 'page', PatternsSortBy::class);
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getFilteredPatternsForAuthorGalery(string $userId): array
     {
         $decodedUserId = decodeModelId($userId);
@@ -52,6 +90,9 @@ class PatternService implements PatternServiceInterface
         return self::getPatternsList($patterns, 'page', PatternsSortBy::class, includeCopyAction: true);
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getAuthorPatterns(int $authUserId, bool $draft, int $perPage = 4): array
     {
         $patterns = $this->model::query()
@@ -65,6 +106,9 @@ class PatternService implements PatternServiceInterface
         return self::getPatternsList($patterns, $draft ? 'drafts_page' : 'my_patterns_page', $draft ? DraftPatternsSortBy::class : MyPatternsSortBy::class, perPage: $perPage);
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getOwnerGalleryPatterns(int $userId): array
     {
         $patterns = $this->model::query()->where('user_id', $userId)->inPersonalGallery()
@@ -73,6 +117,9 @@ class PatternService implements PatternServiceInterface
         return self::getPatternsList($patterns, 'page', PatternsSortBy::class, ownGallery: true);
     }
 
+    /**
+     * @inheritDoc
+     */
     public function getLikedPatterns(int $authUserId, bool $standalone = false): array
     {
         $patterns = $this->model::query()->publiclyShared()
@@ -86,6 +133,9 @@ class PatternService implements PatternServiceInterface
         return self::getPatternsList($patterns, 'likes_page', LikedPatternsSortBy::class, perPage: 4);
     }
 
+    /**
+     * @inheritDoc
+     */
     private static function getPatternsList(
         $queryBuilder, string $pageName, string $sortByClass, bool $ownGallery = false, bool $includeCopyAction = false,
         int $perPage = 3

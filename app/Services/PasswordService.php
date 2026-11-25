@@ -8,7 +8,9 @@ use Illuminate\Support\Str;
 
 class PasswordService implements PasswordServiceInterface
 {
-
+    /**
+     * @inheritDoc
+     */
     public function generatePassword(int $length = 12): string
     {
         $uppercase = chr(random_int(65, 90));
@@ -30,6 +32,9 @@ class PasswordService implements PasswordServiceInterface
             $special
         );
     }
+    /**
+     * @inheritDoc
+     */
     public function hashPassword(string $password): string
     {
         return Hash::make($password);

@@ -1,0 +1,35 @@
+<?php
+
+return [
+    'admin' => 'User reports',
+    'mine' => 'My reports',
+    'report' => 'Report user',
+    'target' => 'Reported user',
+    'reporter' => 'Reported by',
+    'topic' => 'Report topic',
+    'choose' => 'Choose a topic',
+    'message' => 'Report description',
+    'evidence' => 'Screenshots',
+    'upload' => 'Screenshots (up to 3 JPG, PNG or WebP images, 5 MB each)',
+    'send' => 'Send report',
+    'cancel' => 'Close',
+    'sent' => 'Report sent. You can track it in your profile.',
+    'failed' => 'Could not send report.',
+    'status' => 'Status',
+    'details' => 'View details',
+    'review' => 'Review',
+    'decision' => 'Administrator response',
+    'reviewed' => 'Your report has been reviewed',
+    'review_error' => 'Refresh the page and check the report status.',
+    'statuses' => [
+        'pending' => 'Pending review',
+        'upheld' => 'Upheld',
+        'dismissed' => 'Dismissed',
+    ],
+    'topics' => [
+        'abuse' => 'Abuse or harassment',
+        'spam' => 'Spam',
+        'copyright' => 'Copyright infringement',
+        'other' => 'Other',
+    ],
+];

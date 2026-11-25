@@ -18,7 +18,7 @@ export default function GalleryPublicationDialog({config, getSnapshot, onClose, 
         setErrors([]);
         try {
             publicationId.current ??= crypto.randomUUID();
-            const {data} = await axios.post(url, {
+            const payload = {
                 ...await getSnapshot(),
                 publicationId: publicationId.current,
                 title: form.get('title'),
@@ -26,7 +26,17 @@ export default function GalleryPublicationDialog({config, getSnapshot, onClose, 
                 category,
                 ...(revision ? {publicationMode: form.get('publicationMode')} : {}),
                 ...(category === 'new' ? {categoryName: form.get('categoryName')} : {}),
-            }, {headers: {Accept: 'application/json'}});
+            };
+            const photo = form.get('photo');
+            let body = payload;
+            if (photo?.name) {
+                body = new FormData();
+                body.append('photo', photo);
+                for (const [key, value] of Object.entries(payload)) {
+                    if (value != null) body.append(key, key === 'drawing' ? JSON.stringify(value) : value);
+                }
+            }
+            const {data} = await axios.post(url, body, {headers: {Accept: 'application/json'}});
             onPublished(data.workspace);
             onClose();
             router.visit(data.editorUrl);
@@ -50,6 +60,7 @@ export default function GalleryPublicationDialog({config, getSnapshot, onClose, 
                     </label>}
                     <label>{labels.title}<input name="title" defaultValue={revision?.title ?? ''} required maxLength={255} autoFocus /></label>
                     <label>{labels.description}<textarea name="description" defaultValue={revision?.description ?? ''} rows={3} maxLength={5000} /></label>
+                    <label>{labels.photo}<input type="file" name="photo" accept="image/jpeg,image/png,image/webp" /></label>
                     <label>{labels.category}
                         <select required value={category} onChange={(event) => setCategory(event.target.value)}>
                             <option value="" disabled>{labels.choose_category}</option>

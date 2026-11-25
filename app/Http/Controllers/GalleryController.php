@@ -12,6 +12,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 class GalleryController extends Controller
 {
@@ -19,9 +20,14 @@ class GalleryController extends Controller
         private PageServiceInterface $pageService,
         private PageSectionsServiceInterface $pageSectionsService,
 
-    )
-    {}
+    ) {}
 
+    /**
+     * Displays the author's gallery page.
+     *
+     * @param string $userId The ID of the author whose gallery is to be displayed.
+     * @return \Inertia\Response The Inertia response containing the gallery page data.
+     */
     public function indexAuthorGallery(string $userId): \Inertia\Response
     {
         $pageData = $this->pageService->getPageData('gallery')->toArray();
@@ -37,6 +43,12 @@ class GalleryController extends Controller
         return Inertia::render('Page', $pageData);
     }
 
+    /**
+     * Displays the current user's gallery page.
+     *
+     * @param Request $request The current HTTP request.
+     * @return Response The Inertia response containing the gallery page data.
+     */
     public function mine(Request $request): Response
     {
         $pageData = $this->pageService->getPageData('gallery')->toArray();
@@ -52,6 +64,12 @@ class GalleryController extends Controller
             ->header('Cache-Control', 'private, no-store');
     }
 
+    /**
+     * Displays the current user's liked patterns page.
+     *
+     * @param Request $request The current HTTP request.
+     * @return Response The Inertia response containing the liked patterns page data.
+     */
     public function liked(Request $request): Response
     {
         $pageData = $this->pageService->getPageData('gallery')->toArray();
@@ -70,6 +88,14 @@ class GalleryController extends Controller
             ->header('Cache-Control', 'private, no-store');
     }
 
+    /**
+     * Displays the current user's drafts page.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern
+     * @return RedirectResponse The Inertia response containing the drafts page data.
+     * @throws Throwable
+     */
     public function copy(Request $request, Pattern $pattern): RedirectResponse
     {
         $owner = $request->user()->getKey();
@@ -109,6 +135,14 @@ class GalleryController extends Controller
             ? 'main.author_gallery.saved' : 'main.author_gallery.already_saved'));
     }
 
+    /**
+     * Displays the current user's drafts page.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern
+     * @return RedirectResponse The Inertia response containing the drafts page data.
+     * @throws Throwable
+     */
     public function destroy(Request $request, Pattern $pattern): RedirectResponse
     {
         $owner = $request->user()->getKey();

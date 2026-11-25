@@ -12,6 +12,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Guarded(['id', 'created_at', 'updated_at', 'copied_from_id'])]
 class Pattern extends Model
 {
+    public function blockedCommenters(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'pattern_comment_blocks');
+    }
+
     protected $casts = [
         'pattern_data' => 'array'
     ];

@@ -690,7 +690,18 @@ button.pattern-likes:hover, button.pattern-likes:focus-visible {
     font-size: 0.85rem;
     font-weight: 600;
 }
-.discussion-toggle:hover { text-decoration: underline; }
+.discussion-moderation-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 0.55rem;
+    border-top: 1px solid #b9c8e0;
+    color: #294f89;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+.discussion-moderation-actions button { min-width: 0; overflow-wrap: anywhere; }
+.discussion-toggle:hover, .discussion-moderation-actions button:hover { text-decoration: underline; }
 .discussion-owner-actions { margin-top: 0.25rem; }
 .discussion-owner-actions button { display: inline-flex; align-items: center; }
 .discussion-owner-actions textarea {

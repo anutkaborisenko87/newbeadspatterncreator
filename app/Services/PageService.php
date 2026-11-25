@@ -14,6 +14,10 @@ class PageService implements PageServiceInterface
     public function __construct(
         private Page $model
     ) {}
+
+    /**
+     * @inheritDoc
+     */
     public function getPageData(string $slug): ?PageDataDTO
     {
         $page = $this->model::where('status', true)->with(['translate', 'sections']);

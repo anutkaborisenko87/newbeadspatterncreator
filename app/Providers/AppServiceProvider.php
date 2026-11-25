@@ -2,11 +2,13 @@
 
 namespace App\Providers;
 
+use App\Contracts\Services\CommentReportServiceInterface;
 use App\Contracts\Services\PageSectionsServiceInterface;
 use App\Contracts\Services\PageServiceInterface;
 use App\Contracts\Services\PasswordServiceInterface;
 use App\Contracts\Services\PatternServiceInterface;
 use App\Contracts\Services\ProfileServiceInterface;
+use App\Services\CommentReportService;
 use App\Services\PageSectionsService;
 use App\Services\PageService;
 use App\Services\PasswordService;
@@ -29,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProfileServiceInterface::class, ProfileService::class);
         $this->app->bind(PasswordServiceInterface::class, PasswordService::class);
         $this->app->bind(PatternServiceInterface::class, PatternService::class);
+        $this->app->bind(CommentReportServiceInterface::class, CommentReportService::class);
     }
 
     /**
