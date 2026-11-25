@@ -26,6 +26,7 @@ export default function GalleryPublicationDialog({config, getSnapshot, onClose, 
                 category,
                 ...(revision ? {publicationMode: form.get('publicationMode')} : {}),
                 ...(category === 'new' ? {categoryName: form.get('categoryName')} : {}),
+                publishToGallery: form.get('publishToGallery') === 'on',
             };
             const photo = form.get('photo');
             let body = payload;
@@ -72,6 +73,10 @@ export default function GalleryPublicationDialog({config, getSnapshot, onClose, 
                         <input name="categoryName" required maxLength={255} />
                         <small>{labels.translation_hint}</small>
                     </label>}
+                    <label>
+                        <input type="checkbox" name="publishToGallery" defaultChecked />
+                        {labels.publish_to_gallery}
+                    </label>
                 </fieldset>
                 {errors.length > 0 && <ul role="alert">{errors.map((message, index) => <li key={index}>{message}</li>)}</ul>}
                 <div className="gallery-publication-actions">

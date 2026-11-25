@@ -16,13 +16,6 @@ use Throwable;
 
 class GalleryController extends Controller
 {
-    public function unpublish(Request $request, Pattern $pattern): RedirectResponse
-    {
-        abort_unless((int) $pattern->user_id === (int) $request->user()->id && !$pattern->isPrivateCopy(), 403);
-        Pattern::whereKey($pattern->id)->publiclyShared()->update(['published' => true, 'shared' => false]);
-        return back(303, [], route('gallery.mine'));
-    }
-
     public function __construct(
         private PageServiceInterface $pageService,
         private PageSectionsServiceInterface $pageSectionsService,
@@ -161,6 +154,34 @@ class GalleryController extends Controller
                 ->where('user_id', $owner)->inPersonalGallery()->delete(), 404);
         });
 
+        return back(303, [], route('gallery.mine'));
+    }
+
+    /**
+     * Unpublishes a pattern from the current user's gallery.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern The pattern to be unpublished.
+     * @return RedirectResponse A redirect response back to the gallery page.
+     */
+    public function unpublish(Request $request, Pattern $pattern): RedirectResponse
+    {
+        abort_unless((int) $pattern->user_id === (int) $request->user()->id && !$pattern->isPrivateCopy(), 403);
+        Pattern::whereKey($pattern->id)->publiclyShared()->update(['published' => true, 'shared' => false]);
+        return back(303, [], route('gallery.mine'));
+    }
+
+    /**
+     * Publishes a pattern to the current user's gallery.
+     *
+     * @param Request $request The current HTTP request.
+     * @param Pattern $pattern The pattern to be published.
+     * @return RedirectResponse A redirect response back to the gallery page.
+     */
+    public function publish(Request $request, Pattern $pattern): RedirectResponse
+    {
+        abort_unless((int) $pattern->user_id === (int) $request->user()->id && !$pattern->isPrivateCopy(), 403);
+        Pattern::whereKey($pattern->id)->publiclyUnShared()->update(['published' => true, 'shared' => true]);
         return back(303, [], route('gallery.mine'));
     }
 }

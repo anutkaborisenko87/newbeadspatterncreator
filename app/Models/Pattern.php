@@ -67,6 +67,11 @@ class Pattern extends Model
         return $query->where('shared', true)->where('publication_blocked', false)->whereNull('copied_from_id');
     }
 
+    public function scopePubliclyUnShared(Builder $query): Builder
+    {
+        return $query->where('shared', false)->where('publication_blocked', false)->whereNull('copied_from_id');
+    }
+
     public function scopeInPersonalGallery(Builder $query): Builder
     {
         return $query->where(fn (Builder $patterns) => $patterns

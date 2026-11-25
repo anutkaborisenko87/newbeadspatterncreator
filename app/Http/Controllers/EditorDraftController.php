@@ -371,6 +371,7 @@ class EditorDraftController extends Controller
             'description' => ['nullable', 'string', 'max:5000'],
             'category' => $createCategory ? ['required', Rule::in(['new'])] : ['required', 'integer', Rule::exists('pattern_categories', 'id')],
             'publicationMode' => ['sometimes', Rule::in(['new', 'replace'])],
+            'publishToGallery' => ['sometimes', 'boolean'],
         ];
         if ($createCategory) {
             $rules['categoryName'] = ['bail', 'required', 'string', 'max:255', function ($attribute, $value, $fail) {
@@ -443,7 +444,7 @@ class EditorDraftController extends Controller
                 'title' => $fields['title'],
                 'description' => $fields['description'] ?? null,
                 'published' => true,
-                'shared' => true,
+                'shared' => $fields['publishToGallery'] ?? false,
                 'pattern_data' => [
                     ...$snapshot['drawing'],
                     'galleryPublicationId' => $fields['publicationId'],

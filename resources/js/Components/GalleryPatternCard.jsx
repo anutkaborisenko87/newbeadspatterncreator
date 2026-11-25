@@ -62,6 +62,14 @@ export default function GalleryPatternCard({item, labels, color, authorGallery, 
                         }}>
                         <Icon name="hide_password" size={22} color="currentColor" aria-hidden="true"/>
                     </button>}
+                    {item.publishUrl && <button className="gallery-title-action" type="button" disabled={deleting}
+                        title={reportLabels.withoutdraw} aria-label={reportLabels.withoutdraw} onClick={() => {
+                            if (window.confirm(reportLabels.confirm_withoutdraw)) router.get(item.publishUrl, {
+                                preserveScroll: true, onStart: () => setDeleting(true), onFinish: () => setDeleting(false),
+                            });
+                        }}>
+                        <Icon name="see_password" size={22} color="currentColor" aria-hidden="true"/>
+                    </button>}
                     {authorGallery && copyAction}
                 </div>
                 {item.description && <p>{item.description}</p>}

@@ -53,6 +53,8 @@ Route::get('/gallery/patterns/{pattern}/download/{format}', [PatternDownloadCont
 
 Route::middleware('auth')->prefix('my-gallery')->name('gallery.mine')->group(function () {
     Route::delete('/{pattern}/publication', [GalleryController::class, 'unpublish'])->name('.unpublish');
+    Route::get('/{pattern}/publication', [GalleryController::class,
+        'publish'])->name('.publish');
     Route::get('/', [GalleryController::class, 'mine']);
     Route::delete('/{pattern}', [GalleryController::class, 'destroy'])->whereNumber('pattern')->name('.destroy');
     Route::get('/{pattern}/preview/{format?}', [EditorDraftController::class, 'ownedPreview'])

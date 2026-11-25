@@ -85,6 +85,7 @@ return [
         'category_name_too_long' => 'Use a shorter category name so it can be translated.',
         'heading' => 'Publish to gallery',
         'title' => 'Pattern title',
+        'publish_to_gallery' => 'Publish to gallery',
         'description' => 'Description (optional)',
         'category' => 'Category',
         'choose_category' => 'Choose a category',
