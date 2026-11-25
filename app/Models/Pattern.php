@@ -44,7 +44,7 @@ class Pattern extends Model
     public function canRevise(?int $owner): bool
     {
         return $this->isInPersonalGalleryOf($owner) && $this->published
-            && $this->isPubliclyShared() && $this->hasEditorDrawing();
+            && !$this->publication_blocked && !$this->isPrivateCopy() && $this->hasEditorDrawing();
     }
 
     public function isInPersonalGalleryOf(?int $owner): bool
@@ -59,12 +59,12 @@ class Pattern extends Model
 
     public function isPubliclyShared(): bool
     {
-        return $this->shared && !$this->isPrivateCopy();
+        return $this->shared && !$this->publication_blocked && !$this->isPrivateCopy();
     }
 
     public function scopePubliclyShared(Builder $query): Builder
     {
-        return $query->where('shared', true)->whereNull('copied_from_id');
+        return $query->where('shared', true)->where('publication_blocked', false)->whereNull('copied_from_id');
     }
 
     public function scopeInPersonalGallery(Builder $query): Builder

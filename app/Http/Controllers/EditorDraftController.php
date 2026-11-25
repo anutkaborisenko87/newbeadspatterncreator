@@ -412,11 +412,15 @@ class EditorDraftController extends Controller
             }
             $replace = ($fields['publicationMode'] ?? 'new') === 'replace';
             $publication = $draft ?? new Pattern;
-            if ($replace) {
-                $original = $draft?->pattern_data['revisionOf'] ?? null;
-                abort_unless($original, 422);
-                $publication = Pattern::query()->lockForUpdate()->findOrFail($original);
-                abort_unless($publication->canRevise($userId), 404);
+            $originalId = $draft?->pattern_data['revisionOf'] ?? null;
+            abort_if($replace && !$originalId, 422);
+            if ($originalId) {
+                $original = Pattern::query()->lockForUpdate()->findOrFail($originalId);
+                abort_if($original->publication_blocked, 403, __('pattern_reports.blocked'));
+                abort_unless($original->canRevise($userId), 404);
+                if ($replace) {
+                    $publication = $original;
+                }
             }
             if ($createCategory) {
                 $category = PatternCategory::create();

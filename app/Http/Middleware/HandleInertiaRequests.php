@@ -66,6 +66,7 @@ class HandleInertiaRequests extends Middleware
             'patternLikeLabels' => fn () => __('main.pattern_likes'),
             'patternDownloadLabels' => fn () => __('main.pattern_download'),
             'galleryCardLabels' => fn () => [
+                'reportLabels' => [...__('reports'), ...__('pattern_reports')],
                 ...\Illuminate\Support\Arr::only(__('main.own_gallery'), ['photo', 'preview', 'empty', 'likes']),
                 'search' => __('main.author_gallery.search'),
             ],

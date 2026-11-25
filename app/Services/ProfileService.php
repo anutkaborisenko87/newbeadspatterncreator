@@ -9,6 +9,7 @@ use App\DTO\AuthProfileDataDTO;
 use App\DTO\ProfileDataDTO;
 use App\Models\User;
 use App\Models\CommentReport;
+use App\Models\PatternReport;
 use Illuminate\Support\Facades\Auth;
 
 class ProfileService implements ProfileServiceInterface
@@ -34,6 +35,19 @@ class ProfileService implements ProfileServiceInterface
         $newSectionsArray = [];
         $newSectionsArray[] = $this->pageSectionsService->getProfileTitleSection();
         $newSectionsArray[] = $this->pageSectionsService->getProfileUserSection(Auth::user());
+        $patternReports = PatternReport::where('reporter_id', Auth::id())->orWhere('author_id', Auth::id())
+            ->with(['pattern' => fn ($query) => $query->publiclyShared()->select('id')])
+            ->latest('id')->simplePaginate(5, ['id', 'pattern_id', 'title', 'topic', 'status', 'reporter_id'], 'pattern_reports_page')
+            ->withQueryString()->fragment('pattern-reports')
+            ->through(fn (PatternReport $report) => [
+                'id' => $report->id, 'title' => $report->title ?: ($report->pattern_id ? '#'.$report->pattern_id : null),
+                'patternUrl' => $report->pattern ? route('patterns.comments.show', encodeModelId($report->pattern->id), absolute: false) : null,
+                'topic' => __('pattern_reports.topics.'.$report->topic), 'status' => __('reports.statuses.'.$report->status),
+                'notice' => __('pattern_reports.'.($report->reporter_id == Auth::id() ? 'submitted' : 'received')),
+            ]);
+        if ($patternReports->isNotEmpty() || $patternReports->currentPage() > 1) {
+            $newSectionsArray[] = ['slug' => 'pattern_reports', 'reports' => $patternReports, 'labels' => ['heading' => __('pattern_reports.heading')]];
+        }
         $reports = CommentReport::where('reporter_id', Auth::id())->latest('updated_at')->orderByDesc('id')
             ->simplePaginate(5, ['id', 'reported_login', 'topic', 'status', 'message', 'decision'], 'reports_page')
             ->withQueryString()->fragment('my-reports');

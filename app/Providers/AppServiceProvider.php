@@ -6,12 +6,14 @@ use App\Contracts\Services\CommentReportServiceInterface;
 use App\Contracts\Services\PageSectionsServiceInterface;
 use App\Contracts\Services\PageServiceInterface;
 use App\Contracts\Services\PasswordServiceInterface;
+use App\Contracts\Services\PatternReportServiceInterface;
 use App\Contracts\Services\PatternServiceInterface;
 use App\Contracts\Services\ProfileServiceInterface;
 use App\Services\CommentReportService;
 use App\Services\PageSectionsService;
 use App\Services\PageService;
 use App\Services\PasswordService;
+use App\Services\PatternReportService;
 use App\Services\PatternService;
 use App\Services\ProfileService;
 use App\Models\Pattern;
@@ -32,6 +34,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(PasswordServiceInterface::class, PasswordService::class);
         $this->app->bind(PatternServiceInterface::class, PatternService::class);
         $this->app->bind(CommentReportServiceInterface::class, CommentReportService::class);
+        $this->app->bind(PatternReportServiceInterface::class, PatternReportService::class);
     }
 
     /**

@@ -5,7 +5,7 @@ import axios from 'axios';
 import Pusher from 'pusher-js';
 import Icon from '@/Components/Icon.jsx';
 import PatternLikes from '@/Components/PatternLikes.jsx';
-import ReportCommentDialog from '@/Components/ReportCommentDialog.jsx';
+import ReportDialog from '@/Components/ReportDialog.jsx';
 import {CopyPattern, PatternDownloads} from '@/Components/PatternActions.jsx';
 import {openCloseModal} from '@/store/modalSlice.js';
 
@@ -238,7 +238,7 @@ function Discussion({pattern, feedUrl, initialComments, diagramUrl, labels, sock
 
     return <div className="discussion-page">
         <Head title={pattern.title ?? labels.title}/>
-        {reportEntry && <ReportCommentDialog entry={reportEntry} url={`${pattern.comments.link}/${reportEntry.id}/reports`}
+        {reportEntry && <ReportDialog allowScreenshots subject={reportEntry.login} url={`${pattern.comments.link}/${reportEntry.id}/reports`}
             labels={reportLabels} onClose={() => setReportEntry(null)}
             onSent={() => {setReportEntry(null); setReportSent(true);}}/>}
         <section className="discussion-panel galery-item-block-background">

@@ -2,7 +2,7 @@ import {useState} from 'react';
 import axios from 'axios';
 import Modal from '@/Components/Modal.jsx';
 
-export default function ReportCommentDialog({entry, url, labels, onClose, onSent}) {
+export default function ReportDialog({subject, url, labels, allowScreenshots = false, onClose, onSent}) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     async function submit(event) {
@@ -20,7 +20,7 @@ export default function ReportCommentDialog({entry, url, labels, onClose, onSent
             setBusy(false);
         }
     }
-    return <Modal open title={labels.report + ' · ' + entry.login} onClose={onClose} closeDisabled={busy} closeLabel={labels.cancel}>
+    return <Modal open title={[labels.report, subject].filter(Boolean).join(' · ')} onClose={onClose} closeDisabled={busy} closeLabel={labels.cancel}>
         <form className="gallery-publication-form" onSubmit={submit}>
             <fieldset disabled={busy}>
                 <label>{labels.topic}<select name="topic" required defaultValue="">
@@ -28,7 +28,7 @@ export default function ReportCommentDialog({entry, url, labels, onClose, onSent
                     {Object.entries(labels.topics).map(([key, title]) => <option key={key} value={key}>{title}</option>)}
                 </select></label>
                 <label>{labels.message}<textarea required name="message" rows={4} maxLength={4000}/></label>
-                <label>{labels.upload}<input type="file" multiple name="screenshots[]" accept="image/png,image/jpeg,image/webp"/></label>
+                {allowScreenshots && <label>{labels.upload}<input type="file" multiple name="screenshots[]" accept="image/png,image/jpeg,image/webp"/></label>}
             </fieldset>
             {error && <p role="alert">{error}</p>}
             <div className="gallery-publication-actions"><button disabled={busy} type="submit">{labels.send}</button></div>
